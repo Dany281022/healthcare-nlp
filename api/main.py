@@ -29,14 +29,6 @@ app.add_middleware(
 
 Instrumentator().instrument(app).expose(app)
 
-# ── Serve static files ─────────────────────────────────
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/", include_in_schema=False)
-def serve_dashboard() -> FileResponse:
-    """Serve the main dashboard HTML page."""
-    return FileResponse("static/index.html")
-
 # ── Load model on startup ──────────────────────────────
 model      = None
 vectorizer = None
@@ -146,6 +138,16 @@ def get_model_metrics() -> dict:
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Dashboard route ────────────────────────────────────
+@app.get("/", include_in_schema=False)
+def serve_dashboard() -> FileResponse:
+    """Serve the main dashboard HTML page."""
+    return FileResponse("static/index.html")
+
+# ── Static files (MUST be last) ────────────────────────
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 if __name__ == "__main__":
