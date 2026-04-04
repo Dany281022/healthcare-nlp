@@ -9,6 +9,9 @@ RUN python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')
 
 COPY . .
 
+# Ensure static directory exists
+RUN mkdir -p /app/static
+
 EXPOSE 8000
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
