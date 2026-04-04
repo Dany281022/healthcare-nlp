@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Healthcare Feedback Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+  header{background:linear-gradient(135deg,#1a365d,#2b6cb0);color:#fff;padding:1.5rem 2rem;display:flex;align-items:center;gap:1rem}
+  header h1{font-size:1.5rem;font-weight:600}
+  header span{font-size:.9rem;opacity:.8}
+  .badge{background:rgba(255,255,255,.2);padding:.25rem .75rem;border-radius:999px;font-size:.8rem}
+  .container{max-width:1200px;margin:0 auto;padding:1.5rem}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+  .card{background:#fff;border-radius:12px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .stat-card{text-align:center}
+  .stat-card .num{font-size:2rem;font-weight:700;color:#2b6cb0}
+  .stat-card .lbl{font-size:.8rem;color:#718096;margin-top:.25rem}
+  .card h2{font-size:1rem;font-weight:600;margin-bottom:1rem;color:#2d3748;border-bottom:2px solid #ebf4ff;padding-bottom:.5rem}
+  textarea{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;font-size:.95rem;resize:vertical;min-height:80px;font-family:inherit;outline:none;transition:border .2s}
+  textarea:focus{border-color:#2b6cb0}
+  input[type=text]{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;font-size:.95rem;font-family:inherit;outline:none;transition:border .2s}
+  input[type=text]:focus{border-color:#2b6cb0}
+  select{border:1px solid #e2e8f0;border-radius:8px;padding:.6rem .75rem;font-size:.9rem;outline:none;background:#fff}
+  btn,.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.25rem;border:none;border-radius:8px;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s}
+  .btn-primary{background:#2b6cb0;color:#fff}
+  .btn-primary:hover{background:#2c5282}
+  .btn-secondary{background:#edf2f7;color:#4a5568}
+  .btn-secondary:hover{background:#e2e8f0}
+  .result-box{margin-top:1rem;padding:.75rem 1rem;border-radius:8px;font-size:.9rem;line-height:1.6;display:none}
+  .result-positive{background:#f0fff4;border-left:4px solid #38a169;color:#276749}
+  .result-negative{background:#fff5f5;border-left:4px solid #e53e3e;color:#c53030}
+  .result-info{background:#ebf8ff;border-left:4px solid #3182ce;color:#2c5282}
+  .result-insight{background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;white-space:pre-wrap}
+  .chat-box{height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;background:#f7fafc;margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem}
+  .msg{padding:.6rem .9rem;border-radius:10px;max-width:85%;font-size:.9rem;line-height:1.5}
+  .msg-user{background:#2b6cb0;color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
+  .msg-bot{background:#fff;color:#2d3748;align-self:flex-start;border:1px solid #e2e8f0;border-bottom-left-radius:3px}
+  .msg-thinking{background:#edf2f7;color:#718096;align-self:flex-start;font-style:italic;font-size:.85rem}
+  .chat-input-row{display:flex;gap:.5rem}
+  .chat-input-row input{flex:1}
+  .theme-bar{margin-bottom:.75rem}
+  .theme-bar .label-row{display:flex;justify-content:space-between;font-size:.82rem;color:#4a5568;margin-bottom:.3rem}
+  .bar-bg{background:#edf2f7;border-radius:999px;height:8px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:999px;transition:width .8s ease}
+  .tag{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-size:.75rem;font-weight:600;margin-left:.5rem}
+  .tag-pos{background:#c6f6d5;color:#276749}
+  .tag-neg{background:#fed7d7;color:#c53030}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.4rem}
+  .dot-green{background:#38a169}
+  .dot-red{background:#e53e3e}
+  @media(max-width:768px){.grid-4,.grid-2,.grid-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Healthcare Feedback Dashboard</h1>
+    <span>NLP + LLM Analysis — Cambrian College AI Program</span>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:.75rem;align-items:center">
+    <span class="badge" id="api-status">⏳ Connecting...</span>
+    <span class="badge" id="model-status">⏳ Model...</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPI Cards -->
+  <div class="grid-4">
+    <div class="card stat-card">
+      <div class="num" id="kpi-total">1,000</div>
+      <div class="lbl">Total Feedback</div>
+    </div>
+    <div class="card stat-card">
+      <div class="num" style="color:#38a169" id="kpi-pos">—</div>
+      <div class="lbl">Positive Feedback</div>
+    </div>
+    <div class="card stat-card">
+      <div class="num" style="color:#e53e3e" id="kpi-neg">—</div>
+      <div class="lbl">Negative Feedback</div>
+    </div>
+    <div class="card stat-card">
+      <div class="num" style="color:#805ad5" id="kpi-themes">4</div>
+      <div class="lbl">Healthcare Themes</div>
+    </div>
+  </div>
+
+  <!-- Charts + Theme Bars -->
+  <div class="grid-2">
+    <div class="card">
+      <h2>Sentiment Distribution by Theme</h2>
+      <div style="position:relative;height:240px">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Satisfaction Score by Theme</h2>
+      <div id="themeBars"></div>
+    </div>
+  </div>
+
+  <!-- Donut + Analyze + Insights -->
+  <div class="grid-3">
+
+    <!-- Donut -->
+    <div class="card">
+      <h2>Overall Sentiment</h2>
+      <div style="position:relative;height:200px">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Analyze -->
+    <div class="card">
+      <h2>Analyze Feedback</h2>
+      <textarea id="analyzeInput" placeholder="Type patient feedback here...
+e.g. The doctor explained everything clearly."></textarea>
+      <div style="margin-top:.75rem;display:flex;gap:.5rem">
+        <button class="btn btn-primary" onclick="analyzeFeedback()" id="analyzeBtn">
+          Analyze
+        </button>
+        <button class="btn btn-secondary" onclick="clearAnalyze()">Clear</button>
+      </div>
+      <div class="result-box" id="analyzeResult"></div>
+    </div>
+
+    <!-- LLM Insights -->
+    <div class="card">
+      <h2>Generate LLM Insight</h2>
+      <div style="margin-bottom:.75rem;display:flex;gap:.5rem;align-items:center">
+        <label style="font-size:.85rem;color:#4a5568">Theme:</label>
+        <select id="insightTheme">
+          <option value="communication">Communication</option>
+          <option value="wait_time">Wait Time</option>
+          <option value="medication">Medication</option>
+          <option value="discharge">Discharge</option>
+        </select>
+        <button class="btn btn-primary" onclick="generateInsight()" id="insightBtn">Generate</button>
+      </div>
+      <div class="result-box result-insight" id="insightResult" style="display:block;min-height:120px;color:#718096;font-style:italic">
+        Select a theme and click Generate to get an AI-powered insight...
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Chat Interface -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <h2>Chat with your Healthcare Data</h2>
+    <div class="chat-box" id="chatBox">
+      <div class="msg msg-bot">Hello! I can analyze patient feedback sentiment and generate healthcare insights. Try asking me something like <strong>"Analyze: The waiting time was too long"</strong> or <strong>"Insights for wait_time"</strong>.</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder='Try: "Analyze: The nurse was very kind" or "Insights for communication"' onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button class="btn btn-primary" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '';  // Same origin — FastAPI serves this page
+
+// ── Boot ─────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  await checkHealth();
+  await loadTopics();
+});
+
+// ── Health check ──────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    document.getElementById('api-status').textContent  = '✅ API Online';
+    document.getElementById('model-status').textContent = d.model_loaded ? '✅ Model Ready' : '⚠️ Model Not Loaded';
+  } catch {
+    document.getElementById('api-status').textContent = '❌ API Offline';
+  }
+}
+
+// ── Load topics + render charts ───────────────────────
+async function loadTopics() {
+  try {
+    const r = await fetch(`${API}/topics`);
+    const d = await r.json();
+
+    const themes    = Object.keys(d);
+    const positives = themes.map(t => d[t].positive);
+    const negatives = themes.map(t => d[t].negative);
+    const totals    = themes.map(t => d[t].total);
+    const sats      = themes.map(t => d[t].avg_satisfaction);
+
+    const totalPos = positives.reduce((a,b)=>a+b,0);
+    const totalNeg = negatives.reduce((a,b)=>a+b,0);
+    document.getElementById('kpi-pos').textContent = totalPos;
+    document.getElementById('kpi-neg').textContent = totalNeg;
+
+    // Bar chart
+    new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: themes.map(t => t.replace('_',' ')),
+        datasets: [
+          { label:'Positive', data: positives, backgroundColor:'#68d391' },
+          { label:'Negative', data: negatives, backgroundColor:'#fc8181' },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 }}}},
+        scales:{ x:{ stacked:false }, y:{ beginAtZero:true }}
+      }
+    });
+
+    // Donut chart
+    new Chart(document.getElementById('donutChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Positive','Negative'],
+        datasets:[{ data:[totalPos,totalNeg], backgroundColor:['#68d391','#fc8181'], borderWidth:0 }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false, cutout:'65%',
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 }}}}
+      }
+    });
+
+    // Satisfaction bars
+    const maxSat = 5;
+    const colors = ['#2b6cb0','#38a169','#d69e2e','#805ad5'];
+    document.getElementById('themeBars').innerHTML = themes.map((t,i) => `
+      <div class="theme-bar">
+        <div class="label-row">
+          <span>${t.replace('_',' ')} <span class="tag ${d[t].positive>d[t].negative?'tag-pos':'tag-neg'}">${d[t].positive>d[t].negative?'Mostly Positive':'Mostly Negative'}</span></span>
+          <span><strong>${sats[i]}</strong>/5</span>
+        </div>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${(sats[i]/maxSat*100).toFixed(0)}%;background:${colors[i]}"></div>
+        </div>
+      </div>
+    `).join('');
+
+  } catch(e) {
+    console.error('Failed to load topics:', e);
+  }
+}
+
+// ── Analyze feedback ──────────────────────────────────
+async function analyzeFeedback() {
+  const text = document.getElementById('analyzeInput').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('analyzeBtn');
+  btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+  btn.disabled = true;
+
+  try {
+    const r = await fetch(`${API}/analyze`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    const d = await r.json();
+    const box = document.getElementById('analyzeResult');
+    box.className = `result-box ${d.prediction===1?'result-positive':'result-negative'}`;
+    box.style.display = 'block';
+    box.innerHTML = `
+      <strong>${d.prediction===1?'✅ Positive':'❌ Negative'} Sentiment</strong><br>
+      <span style="font-size:.85rem;opacity:.85">"${d.text}"</span>
+    `;
+  } catch(e) {
+    showResult('analyzeResult','result-info',`Error: ${e.message}`);
+  }
+  btn.innerHTML = 'Analyze';
+  btn.disabled = false;
+}
+
+function clearAnalyze() {
+  document.getElementById('analyzeInput').value = '';
+  const box = document.getElementById('analyzeResult');
+  box.style.display = 'none';
+}
+
+// ── Generate LLM insight ──────────────────────────────
+async function generateInsight() {
+  const theme = document.getElementById('insightTheme').value;
+  const btn   = document.getElementById('insightBtn');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled  = true;
+
+  const samples = {
+    communication: ["Doctor explained everything clearly","Nurse was very kind","Too much medical jargon","Staff was responsive"],
+    wait_time:     ["Wait time was too long","I waited 3 hours","Quick service today","Appointment was on time"],
+    medication:    ["Medication instructions were clear","Wrong dosage prescribed","Pharmacy was helpful","Side effects not explained"],
+    discharge:     ["Discharge process was smooth","Instructions unclear at discharge","Left without proper guidance","Follow-up was well organized"],
+  };
+
+  try {
+    const r = await fetch(`${API}/insights`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ theme, samples: samples[theme] })
+    });
+    const d = await r.json();
+    const box = document.getElementById('insightResult');
+    box.style.cssText = 'display:block;background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;padding:.75rem 1rem;border-radius:8px;margin-top:.5rem;font-size:.88rem;line-height:1.6;white-space:pre-wrap;font-style:normal';
+    box.textContent = d.insight;
+  } catch(e) {
+    showResult('insightResult','result-info',`Error: ${e.message}`);
+  }
+  btn.innerHTML = 'Generate';
+  btn.disabled  = false;
+}
+
+// ── Chat interface ────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  addMsg(msg, 'user');
+  const thinking = addMsg('Thinking...', 'thinking');
+
+  try {
+    const lower = msg.toLowerCase();
+
+    // Route: analyze intent
+    if (lower.startsWith('analyze:') || lower.startsWith('analyse:') || lower.includes('sentiment of')) {
+      const text = msg.replace(/^analy[sz]e:/i,'').replace(/sentiment of/i,'').trim();
+      const r    = await fetch(`${API}/analyze`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text })
+      });
+      const d = await r.json();
+      thinking.remove();
+      addMsg(`Sentiment: ${d.label === 'Positive' ? '✅ Positive' : '❌ Negative'}\n"${d.text}"`, 'bot');
+
+    // Route: insights intent
+    } else if (lower.includes('insight') || lower.includes('analysis for') || lower.includes('insights for')) {
+      const themeMatch = ['communication','wait_time','medication','discharge'].find(t => lower.includes(t.replace('_',' ')) || lower.includes(t));
+      const theme = themeMatch || 'communication';
+      const samples = {
+        communication:["Doctor explained clearly","Nurse was kind","Too much jargon","Staff responsive"],
+        wait_time:["Wait too long","Waited 3 hours","Quick service","On time"],
+        medication:["Instructions clear","Wrong dosage","Pharmacy helpful","Side effects unexplained"],
+        discharge:["Smooth discharge","Unclear instructions","Left without guidance","Good follow-up"],
+      };
+      const r = await fetch(`${API}/insights`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ theme, samples: samples[theme] })
+      });
+      const d = await r.json();
+      thinking.remove();
+      addMsg(`Insight for ${theme.replace('_',' ')}:\n\n${d.insight}`, 'bot');
+
+    // Route: topics/stats
+    } else if (lower.includes('topic') || lower.includes('stats') || lower.includes('distribution') || lower.includes('data')) {
+      const r = await fetch(`${API}/topics`);
+      const d = await r.json();
+      thinking.remove();
+      const summary = Object.entries(d).map(([t,v]) =>
+        `• ${t.replace('_',' ')}: ${v.total} feedbacks — ${v.positive} positive, ${v.negative} negative (avg satisfaction: ${v.avg_satisfaction}/5)`
+      ).join('\n');
+      addMsg(`Here are the topic statistics:\n\n${summary}`, 'bot');
+
+    // Default
+    } else {
+      thinking.remove();
+      addMsg(`I can help you with:\n• "Analyze: [feedback text]" — predict sentiment\n• "Insights for [theme]" — get AI analysis\n• "Show topics" — see data distribution\n\nThemes available: communication, wait_time, medication, discharge`, 'bot');
+    }
+  } catch(e) {
+    thinking.remove();
+    addMsg(`Sorry, something went wrong: ${e.message}`, 'bot');
+  }
+}
+
+function addMsg(text, type) {
+  const box = document.getElementById('chatBox');
+  const div = document.createElement('div');
+  div.className = type === 'user' ? 'msg msg-user' : type === 'thinking' ? 'msg msg-thinking' : 'msg msg-bot';
+  div.style.whiteSpace = 'pre-wrap';
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function showResult(id, cls, text) {
+  const box = document.getElementById(id);
+  box.className = `result-box ${cls}`;
+  box.style.display = 'block';
+  box.textContent = text;
+}
+</script>
+</body>
+</html>

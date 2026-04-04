@@ -1,14 +1,15 @@
 # api/main.py
 """
 FastAPI application — Healthcare Patient Feedback Analysis.
-Endpoints: /analyze, /insights, /topics, /metrics, /health
-Deployed on Render.
+Serves the dashboard frontend + REST endpoints.
 """
 import os
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from prometheus_fastapi_instrumentator import Instrumentator
 from config import MODEL_PATH, DATA_PATH, THEMES
@@ -26,8 +27,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Prometheus metrics auto-instrumentation
 Instrumentator().instrument(app).expose(app)
+
+# ── Serve static files ─────────────────────────────────
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/", include_in_schema=False)
+def serve_dashboard() -> FileResponse:
+    """Serve the main dashboard HTML page."""
+    return FileResponse("static/index.html")
 
 # ── Load model on startup ──────────────────────────────
 model      = None
@@ -63,7 +71,7 @@ class InsightResponse(BaseModel):
     insight: str
 
 class HealthResponse(BaseModel):
-    status:      str
+    status:       str
     model_loaded: bool
 
 
@@ -71,20 +79,14 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse, tags=["Monitoring"])
 def health_check() -> HealthResponse:
     """Health probe for Render and monitoring systems."""
-    return HealthResponse(
-        status="ok",
-        model_loaded=model is not None,
-    )
+    return HealthResponse(status="ok", model_loaded=model is not None)
 
 
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["NLP"])
 def analyze_feedback(request: FeedbackRequest) -> AnalyzeResponse:
-    """
-    Predict sentiment for a single patient feedback text.
-    Returns: Positive (1) or Negative (0).
-    """
+    """Predict sentiment for a single patient feedback text."""
     if model is None or vectorizer is None:
-        raise HTTPException(status_code=503, detail="Model not loaded. Run training first.")
+        raise HTTPException(status_code=503, detail="Model not loaded.")
     try:
         from src.preprocess import clean_text
         cleaned = clean_text(request.text)
@@ -98,10 +100,7 @@ def analyze_feedback(request: FeedbackRequest) -> AnalyzeResponse:
 
 @app.post("/insights", response_model=InsightResponse, tags=["LLM"])
 def generate_insight(request: InsightRequest) -> InsightResponse:
-    """
-    Generate an LLM-powered insight from a list of feedback samples.
-    Uses OpenAI with automatic Ollama fallback.
-    """
+    """Generate an LLM-powered insight from feedback samples."""
     try:
         from src.predict import generate_llm_insight
         insight = generate_llm_insight(request.samples, theme=request.theme)
@@ -112,24 +111,17 @@ def generate_insight(request: InsightRequest) -> InsightResponse:
 
 @app.get("/topics", tags=["NLP"])
 def get_topics() -> dict:
-    """
-    Return sentiment and satisfaction distribution grouped by healthcare theme.
-    Themes: communication, wait_time, medication, discharge.
-    """
+    """Return sentiment distribution grouped by healthcare theme."""
     try:
         from src.predict import get_topic_distribution
         return get_topic_distribution(DATA_PATH)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/", tags=["Root"])
-def root():
-    return {"message": "Healthcare Feedback API running. Visit /docs for Swagger UI."}
+
 @app.get("/metrics", tags=["MLOps"])
 def get_model_metrics() -> dict:
-    """
-    Return the latest model performance metrics from MLflow.
-    """
+    """Return latest model performance metrics from MLflow."""
     try:
         import mlflow
         from config import MLFLOW_TRACKING_URI, EXPERIMENT_NAME
@@ -147,10 +139,10 @@ def get_model_metrics() -> dict:
             return {"message": "No runs found."}
         latest = runs[0]
         return {
-            "run_id":   latest.info.run_id,
-            "status":   latest.info.status,
-            "metrics":  latest.data.metrics,
-            "params":   latest.data.params,
+            "run_id":  latest.info.run_id,
+            "status":  latest.info.status,
+            "metrics": latest.data.metrics,
+            "params":  latest.data.params,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
