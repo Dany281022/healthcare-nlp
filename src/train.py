@@ -1,6 +1,6 @@
 # src/train.py
 """
-Model training with MLflow experiment tracking.
+Model training with MLflow experiment tracking (local file mode).
 Trains a sentiment classifier on patient feedback (Sentiment: 0/1).
 """
 import os
@@ -29,6 +29,8 @@ def train(model_type: str = "svm") -> dict:
     """
     # ── Setup ──────────────────────────────────────────
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
+    # Local file mode — no MLflow server needed
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment(EXPERIMENT_NAME)
 
@@ -44,39 +46,43 @@ def train(model_type: str = "svm") -> dict:
 
     # ── Train + MLflow run ─────────────────────────────
     with mlflow.start_run(run_name=f"sentiment_{model_type}"):
+
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
 
-        # Metrics
+        # ── Metrics ────────────────────────────────────
         acc = accuracy_score(y_test, y_pred)
         f1  = f1_score(y_test, y_pred, average="weighted")
-        # AUC only available for LR (has predict_proba)
+
         auc = None
         if model_type == "lr":
             proba = model.predict_proba(X_test)[:, 1]
             auc   = roc_auc_score(y_test, proba)
 
-        # Log to MLflow
+        # ── Log to MLflow ──────────────────────────────
         mlflow.log_param("model_type",   model_type)
         mlflow.log_param("data_rows",    len(df))
         mlflow.log_param("max_features", 5000)
-        mlflow.log_metric("accuracy", acc)
-        mlflow.log_metric("f1_score",  f1)
+        mlflow.log_metric("accuracy",    acc)
+        mlflow.log_metric("f1_score",    f1)
         if auc:
             mlflow.log_metric("auc", auc)
 
         mlflow.sklearn.log_model(model, "model")
 
-        print(f"\n[Train] Model: {model_type}")
+        # ── Console output ─────────────────────────────
+        print(f"\n[Train] Model    : {model_type.upper()}")
         print(f"[Train] Accuracy : {acc:.4f}")
         print(f"[Train] F1 Score : {f1:.4f}")
         if auc:
             print(f"[Train] AUC      : {auc:.4f}")
         print("\n[Train] Classification Report:")
-        print(classification_report(y_test, y_pred,
-              target_names=["Negative", "Positive"]))
+        print(classification_report(
+            y_test, y_pred,
+            target_names=["Negative", "Positive"]
+        ))
 
-        # Save model locally
+        # ── Save model locally ─────────────────────────
         joblib.dump(model, MODEL_PATH)
         print(f"[Train] Model saved to {MODEL_PATH}")
 

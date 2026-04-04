@@ -5,6 +5,7 @@ Handles: cleaning, tokenization, stopword removal, lemmatization, TF-IDF.
 Dataset columns: Feedback, Sentiment, Theme, Satisfaction, Readmission
 """
 import re
+import os
 import pandas as pd
 import nltk
 from nltk.corpus import stopwords
@@ -15,10 +16,10 @@ import joblib
 from config import DATA_PATH, TEXT_COL, LABEL_COL, MODEL_PATH
 
 # Download required NLTK data on first run
-nltk.download("stopwords",    quiet=True)
-nltk.download("wordnet",      quiet=True)
-nltk.download("punkt",        quiet=True)
-nltk.download("punkt_tabbed", quiet=True)
+nltk.download("stopwords", quiet=True)
+nltk.download("wordnet",   quiet=True)
+nltk.download("punkt",     quiet=True)
+nltk.download("punkt_tab", quiet=True)
 
 lemmatizer = WordNetLemmatizer()
 stop_words  = set(stopwords.words("english"))
@@ -70,6 +71,7 @@ def build_features(
     print(f"[Preprocess] Train: {X_train.shape[0]} | Test: {X_test.shape[0]}")
 
     # Save vectorizer alongside the model
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     vectorizer_path = MODEL_PATH.replace(".pkl", "_vectorizer.pkl")
     joblib.dump(vectorizer, vectorizer_path)
     print(f"[Preprocess] Vectorizer saved to {vectorizer_path}")
@@ -81,3 +83,4 @@ if __name__ == "__main__":
     df = load_and_preprocess()
     build_features(df)
     print(df[["Feedback", "cleaned_text", "Sentiment", "Theme"]].head(3))
+    
