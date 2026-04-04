@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: healthcare-nlp-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('punkt')"
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: llama3.2:latest
+      - key: MODEL_PATH
+        value: models/sentiment_model.pkl
+      - key: DATA_PATH
+        value: data/patient_feedback_dataset.xlsx
+      - key: MLFLOW_TRACKING_URI
+        value: http://localhost:5000
