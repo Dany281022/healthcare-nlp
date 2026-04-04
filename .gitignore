@@ -2,6 +2,6 @@
 venv/
 __pycache__/
 *.pyc
-models/*.pkl
 mlruns/
 *.db
+# models/*.pkl  ← commented out intentionally for Render deployment
