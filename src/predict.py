@@ -2,13 +2,14 @@
 """
 Inference module — 3 tâches du projet Cambrian Healthcare NLP.
 
-Task 1 : predict_sentiment()      — classification binaire (Positive/Negative)
-Task 2 : predict_theme()          — classification de thème (4 classes)
-Task 3 : get_topics_nmf()         — topics latents NMF depuis le dataset
+Task 1 : predict_sentiment()   — classification binaire (Positive/Negative)
+Task 2 : predict_theme()       — classification de thème (4 classes UCI)
+Task 3 : get_topics_nmf()      — topics latents NMF depuis le dataset
 
-Données réelles :
-  get_topic_distribution()        — stats sentiment par thème (dashboard)
-  get_real_samples()              — vrais feedbacks pour le LLM
+Dashboard helpers :
+  get_topic_distribution()     — stats sentiment par thème
+  get_real_samples()           — vrais feedbacks pour le LLM
+  generate_llm_insight()       — insight LLM depuis feedbacks réels
 """
 import json
 import functools
@@ -36,7 +37,6 @@ def _load_vectorizer():
     try:
         return joblib.load(TFIDF_PATH)
     except FileNotFoundError:
-        # Legacy path fallback
         return joblib.load(MODEL_PATH.replace(".pkl", "_vectorizer.pkl"))
 
 
@@ -75,17 +75,15 @@ def predict_sentiment(text: str, model, vectorizer) -> dict:
 def predict_theme(text: str, vectorizer) -> dict:
     """
     Task 2 : predict healthcare theme for a single feedback string.
-
-    Loads the theme model on first call.
-    Returns predicted theme label (e.g. 'medication').
+    Themes : Anxiety, Birth Control, Depression, Pain
     """
     from src.preprocess import clean_text
-    cleaned      = clean_text(text)
-    X            = vectorizer.transform([cleaned])
-    theme_model  = joblib.load(THEME_MODEL_PATH)
-    pred         = theme_model.predict(X)[0]
-    proba        = theme_model.predict_proba(X)[0]
-    confidence   = round(float(max(proba)), 3)
+    cleaned     = clean_text(text)
+    X           = vectorizer.transform([cleaned])
+    theme_model = joblib.load(THEME_MODEL_PATH)
+    pred        = theme_model.predict(X)[0]
+    proba       = theme_model.predict_proba(X)[0]
+    confidence  = round(float(max(proba)), 3)
     return {"text": text, "theme": str(pred), "confidence": confidence}
 
 
@@ -94,13 +92,9 @@ def predict_theme(text: str, vectorizer) -> dict:
 # ══════════════════════════════════════════════════════
 def get_topics_nmf() -> dict:
     """
-    Task 3 : return the latent topics extracted by NMF.
-
-    Loads pre-computed topics from JSON artifact (saved during training).
+    Task 3 : return latent topics extracted by NMF.
+    Loads pre-computed topics from JSON artifact saved during training.
     Falls back to loading the NMF model directly if JSON not found.
-
-    Returns:
-        dict — {topic_1: [word1, word2, ...], topic_2: [...], ...}
     """
     topics_path = MODEL_PATH.replace("sentiment_model.pkl", "nmf_topics.json")
     try:
@@ -110,8 +104,8 @@ def get_topics_nmf() -> dict:
         pass
 
     # Fallback : recompute from saved model
-    vectorizer = _load_vectorizer()
-    nmf_model  = joblib.load(NMF_MODEL_PATH)
+    vectorizer    = _load_vectorizer()
+    nmf_model     = joblib.load(NMF_MODEL_PATH)
     feature_names = vectorizer.get_feature_names_out()
     topics = {}
     for i, topic in enumerate(nmf_model.components_):
@@ -126,16 +120,30 @@ def get_topics_nmf() -> dict:
 @functools.lru_cache(maxsize=1)
 def get_topic_distribution(data_path: str = DATA_PATH) -> dict:
     """
-    Return sentiment distribution grouped by Theme from the full dataset.
+    Return sentiment distribution grouped by Theme.
     Cached after first call — no repeated disk reads.
+
+    Handles missing or all-NaN Satisfaction column gracefully.
     """
-    df = _load_dataset(data_path)
+    df     = _load_dataset(data_path)
     result = {}
+
     for theme in THEMES:
-        subset  = df[df[THEME_COL] == theme]
-        pos     = int((subset[LABEL_COL] == 1).sum())
-        neg     = int((subset[LABEL_COL] == 0).sum())
-        avg_sat = round(float(subset[SATISFACTION_COL].mean()), 2) if SATISFACTION_COL in df.columns else 0.0
+        subset = df[df[THEME_COL] == theme]
+        pos    = int((subset[LABEL_COL] == 1).sum())
+        neg    = int((subset[LABEL_COL] == 0).sum())
+
+        # Robust avg_satisfaction — handles missing column or all-NaN values
+        if (
+            SATISFACTION_COL in df.columns
+            and not subset[SATISFACTION_COL].isna().all()
+        ):
+            avg_sat = round(float(subset[SATISFACTION_COL].dropna().mean()), 2)
+        else:
+            # Derive from sentiment ratio if Satisfaction column is absent
+            total   = pos + neg
+            avg_sat = round((pos / total) * 5, 2) if total > 0 else 0.0
+
         result[theme] = {
             "total":            len(subset),
             "positive":         pos,
@@ -181,8 +189,12 @@ Be factual, professional, and concise."""
 
 
 if __name__ == "__main__":
-    # Smoke test Task 3
     print("[Task 3] NMF Topics:")
     topics = get_topics_nmf()
     for topic, words in topics.items():
         print(f"  {topic}: {', '.join(words)}")
+
+    print("\n[Dashboard] Topic distribution:")
+    dist = get_topic_distribution()
+    for theme, stats in dist.items():
+        print(f"  {theme}: {stats}")

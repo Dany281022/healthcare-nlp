@@ -115,10 +115,9 @@
     </div>
   </div>
 
-  <!-- Donut + Task 1 Analyze + Task 2 Theme -->
+  <!-- Donut + Task 1 + Task 2 -->
   <div class="grid-3">
 
-    <!-- Donut -->
     <div class="card">
       <h2>Overall Sentiment <span class="task-label task-1">Task 1</span></h2>
       <div style="position:relative;height:200px">
@@ -126,11 +125,11 @@
       </div>
     </div>
 
-    <!-- Task 1 : Sentiment Analysis -->
+    <!-- Task 1 : Sentiment -->
     <div class="card">
       <h2>Analyze Feedback <span class="task-label task-1">Task 1</span></h2>
       <textarea id="analyzeInput" placeholder="Type patient feedback here...
-e.g. The doctor explained everything clearly."></textarea>
+e.g. This medication has helped me so much."></textarea>
       <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="analyzeFeedback()" id="analyzeBtn">Analyze Sentiment</button>
         <button class="btn btn-secondary" onclick="clearAnalyze()">Clear</button>
@@ -138,11 +137,11 @@ e.g. The doctor explained everything clearly."></textarea>
       <div class="result-box" id="analyzeResult"></div>
     </div>
 
-    <!-- Task 2 : Theme Classification -->
+    <!-- Task 2 : Theme -->
     <div class="card">
       <h2>Predict Theme <span class="task-label task-2">Task 2</span></h2>
       <textarea id="themeInput" placeholder="Type patient feedback here...
-e.g. I waited 3 hours before seeing a doctor."></textarea>
+e.g. I feel so much less anxious since starting this treatment."></textarea>
       <div style="margin-top:.75rem;display:flex;gap:.5rem">
         <button class="btn btn-primary" onclick="predictTheme()" id="themeBtn">Predict Theme</button>
         <button class="btn btn-secondary" onclick="document.getElementById('themeInput').value='';document.getElementById('themeResult').style.display='none'">Clear</button>
@@ -152,13 +151,15 @@ e.g. I waited 3 hours before seeing a doctor."></textarea>
 
   </div>
 
-  <!-- Task 3 : NMF Topics + LLM Insights -->
+  <!-- Task 3 + LLM Insights -->
   <div class="grid-2">
 
-    <!-- Task 3 : NMF Topic Modeling -->
+    <!-- Task 3 : NMF -->
     <div class="card">
       <h2>NMF Topic Modeling <span class="task-label task-3">Task 3</span></h2>
-      <p style="font-size:.82rem;color:#718096;margin-bottom:.75rem">Latent topics extracted from the full TF-IDF matrix — unsupervised, no labels.</p>
+      <p style="font-size:.82rem;color:#718096;margin-bottom:.75rem">
+        Latent topics extracted from the full TF-IDF matrix — unsupervised, no labels.
+      </p>
       <div id="nmfTopics">
         <button class="btn btn-purple" onclick="loadNMFTopics()" id="nmfBtn">Load NMF Topics</button>
       </div>
@@ -170,35 +171,37 @@ e.g. I waited 3 hours before seeing a doctor."></textarea>
       <div style="margin-bottom:.75rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
         <label style="font-size:.85rem;color:#4a5568">Theme:</label>
         <select id="insightTheme">
-          <option value="communication">Communication</option>
-          <option value="wait_time">Wait Time</option>
-          <option value="medication">Medication</option>
-          <option value="discharge">Discharge</option>
+          <option value="Anxiety">Anxiety</option>
+          <option value="Birth Control">Birth Control</option>
+          <option value="Depression">Depression</option>
+          <option value="Pain">Pain</option>
         </select>
         <button class="btn btn-primary" onclick="generateInsight()" id="insightBtn">Generate</button>
       </div>
-      <div class="result-box result-insight" id="insightResult" style="display:block;min-height:120px;color:#718096;font-style:italic">
-        Select a theme and click Generate to get an AI-powered insight from real feedback data...
+      <div class="result-box result-insight" id="insightResult"
+        style="display:block;min-height:120px;color:#718096;font-style:italic">
+        Select a theme and click Generate to get an AI-powered insight from real patient data...
       </div>
     </div>
 
   </div>
 
-  <!-- Chat Interface -->
+  <!-- Chat -->
   <div class="card" style="margin-bottom:1.5rem">
     <h2>Chat with your Healthcare Data</h2>
     <div class="chat-box" id="chatBox">
       <div class="msg msg-bot">Hello! I can run all 3 NLP tasks on patient feedback.<br><br>
-        <strong>Task 1 — Sentiment:</strong> "Analyze: The waiting time was too long"<br>
-        <strong>Task 2 — Theme:</strong> "Theme: The nurse explained my medication clearly"<br>
+        <strong>Task 1 — Sentiment:</strong> "Analyze: This medication really helped me"<br>
+        <strong>Task 2 — Theme:</strong> "Theme: I feel so anxious all the time"<br>
         <strong>Task 3 — Topics:</strong> "Show NMF topics"<br>
         <strong>Stats:</strong> "Show topics" or "Show data"<br>
-        <strong>Insights:</strong> "Insights for wait_time"
+        <strong>Insights:</strong> "Insights for Depression"<br>
+        <strong>Metrics:</strong> "Model performance"
       </div>
     </div>
     <div class="chat-input-row">
       <input type="text" id="chatInput"
-        placeholder='Try: "Analyze: The nurse was kind" | "Theme: I waited 3 hours" | "Show NMF topics"'
+        placeholder='Try: "Analyze: This pill helped a lot" | "Theme: I have back pain" | "Show NMF topics"'
         onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="btn btn-primary" onclick="sendChat()">Send</button>
     </div>
@@ -207,7 +210,8 @@ e.g. I waited 3 hours before seeing a doctor."></textarea>
 </div>
 
 <script>
-const API = '';
+const API    = '';
+const THEMES = ['Anxiety', 'Birth Control', 'Depression', 'Pain'];
 
 // ── Boot ──────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -237,11 +241,11 @@ async function loadMLflowBadge() {
   try {
     const r = await fetch(`${API}/metrics`);
     if (!r.ok) return;
-    const d = await r.json();
+    const d    = await r.json();
     const task1 = d['1'];
     if (task1?.run_id) {
       const badge = document.getElementById('run-badge');
-      badge.textContent = `Run: ${task1.run_id.slice(0,8)}`;
+      badge.textContent  = `Run: ${task1.run_id.slice(0, 8)}`;
       badge.style.display = 'inline-block';
     }
   } catch {}
@@ -254,66 +258,70 @@ async function loadTopics() {
     const d = await r.json();
 
     const themes    = Object.keys(d);
-    const positives = themes.map(t => d[t].positive);
-    const negatives = themes.map(t => d[t].negative);
-    const totals    = themes.map(t => d[t].total);
-    const sats      = themes.map(t => d[t].avg_satisfaction);
+    const positives = themes.map(t => d[t].positive  || 0);
+    const negatives = themes.map(t => d[t].negative  || 0);
+    const totals    = themes.map(t => d[t].total      || 0);
+    const sats      = themes.map(t => d[t].avg_satisfaction || 0);
 
-    const totalPos   = positives.reduce((a,b) => a+b, 0);
-    const totalNeg   = negatives.reduce((a,b) => a+b, 0);
-    const grandTotal = totals.reduce((a,b)    => a+b, 0);
+    const totalPos   = positives.reduce((a, b) => a + b, 0);
+    const totalNeg   = negatives.reduce((a, b) => a + b, 0);
+    const grandTotal = totals.reduce((a, b)    => a + b, 0);
 
     document.getElementById('kpi-total').textContent = grandTotal.toLocaleString();
-    document.getElementById('kpi-pos').textContent   = totalPos;
-    document.getElementById('kpi-neg').textContent   = totalNeg;
+    document.getElementById('kpi-pos').textContent   = totalPos.toLocaleString();
+    document.getElementById('kpi-neg').textContent   = totalNeg.toLocaleString();
 
     new Chart(document.getElementById('barChart'), {
       type: 'bar',
       data: {
-        labels: themes.map(t => t.replace('_',' ')),
+        labels: themes,
         datasets: [
-          { label:'Positive', data: positives, backgroundColor:'#68d391' },
-          { label:'Negative', data: negatives, backgroundColor:'#fc8181' },
+          { label: 'Positive', data: positives, backgroundColor: '#68d391' },
+          { label: 'Negative', data: negatives, backgroundColor: '#fc8181' },
         ]
       },
       options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 }}}},
-        scales:{ x:{ stacked:false }, y:{ beginAtZero:true }}
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: { x: { stacked: false }, y: { beginAtZero: true } }
       }
     });
 
     new Chart(document.getElementById('donutChart'), {
       type: 'doughnut',
       data: {
-        labels: ['Positive','Negative'],
-        datasets:[{ data:[totalPos,totalNeg], backgroundColor:['#68d391','#fc8181'], borderWidth:0 }]
+        labels: ['Positive', 'Negative'],
+        datasets: [{ data: [totalPos, totalNeg], backgroundColor: ['#68d391', '#fc8181'], borderWidth: 0 }]
       },
-      options:{
-        responsive:true, maintainAspectRatio:false, cutout:'65%',
-        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 }}}}
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '65%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
       }
     });
 
     const maxSat = 5;
-    const colors = ['#2b6cb0','#38a169','#d69e2e','#805ad5'];
-    document.getElementById('themeBars').innerHTML = themes.map((t,i) => `
-      <div class="theme-bar">
-        <div class="label-row">
-          <span>${t.replace('_',' ')}
-            <span class="tag ${d[t].positive>d[t].negative?'tag-pos':'tag-neg'}">
-              ${d[t].positive>d[t].negative?'Mostly Positive':'Mostly Negative'}
+    const colors = ['#2b6cb0', '#38a169', '#d69e2e', '#805ad5'];
+    document.getElementById('themeBars').innerHTML = themes.map((t, i) => {
+      const sat      = isNaN(sats[i]) ? 0 : sats[i];
+      const pct      = ((sat / maxSat) * 100).toFixed(0);
+      const isPos    = (d[t].positive || 0) > (d[t].negative || 0);
+      return `
+        <div class="theme-bar">
+          <div class="label-row">
+            <span>${t}
+              <span class="tag ${isPos ? 'tag-pos' : 'tag-neg'}">
+                ${isPos ? 'Mostly Positive' : 'Mostly Negative'}
+              </span>
             </span>
-          </span>
-          <span><strong>${sats[i]}</strong>/5</span>
-        </div>
-        <div class="bar-bg">
-          <div class="bar-fill" style="width:${(sats[i]/maxSat*100).toFixed(0)}%;background:${colors[i]}"></div>
-        </div>
-      </div>
-    `).join('');
+            <span><strong>${sat}</strong>/5</span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" style="width:${pct}%;background:${colors[i]}"></div>
+          </div>
+        </div>`;
+    }).join('');
 
-  } catch(e) {
+  } catch (e) {
     console.error('Failed to load topics:', e);
   }
 }
@@ -326,31 +334,31 @@ async function analyzeFeedback() {
   btn.innerHTML = '<span class="spinner"></span> Analyzing...';
   btn.disabled  = true;
   try {
-    const r = await fetch(`${API}/analyze`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const r   = await fetch(`${API}/analyze`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
     const d   = await r.json();
     const box = document.getElementById('analyzeResult');
-    box.className    = `result-box ${d.prediction===1?'result-positive':'result-negative'}`;
+    box.className     = `result-box ${d.prediction === 1 ? 'result-positive' : 'result-negative'}`;
     box.style.display = 'block';
-    box.innerHTML = `
-      <strong>${d.prediction===1?'✅ Positive':'❌ Negative'} Sentiment</strong><br>
+    box.innerHTML     = `
+      <strong>${d.prediction === 1 ? '✅ Positive' : '❌ Negative'} Sentiment</strong><br>
       <span style="font-size:.85rem;opacity:.85">"${d.text}"</span>
     `;
-  } catch(e) {
-    showResult('analyzeResult','result-info',`Error: ${e.message}`);
+  } catch (e) {
+    showResult('analyzeResult', 'result-info', `Error: ${e.message}`);
   }
   btn.innerHTML = 'Analyze Sentiment';
   btn.disabled  = false;
 }
 
 function clearAnalyze() {
-  document.getElementById('analyzeInput').value = '';
+  document.getElementById('analyzeInput').value    = '';
   document.getElementById('analyzeResult').style.display = 'none';
 }
 
-// ── Task 2 : Theme Prediction ─────────────────────────
+// ── Task 2 : Theme ────────────────────────────────────
 async function predictTheme() {
   const text = document.getElementById('themeInput').value.trim();
   if (!text) return;
@@ -358,73 +366,70 @@ async function predictTheme() {
   btn.innerHTML = '<span class="spinner"></span> Predicting...';
   btn.disabled  = true;
   try {
-    const r = await fetch(`${API}/predict-theme`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const r   = await fetch(`${API}/predict-theme`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
-    const d   = await r.json();
-    const box = document.getElementById('themeResult');
-    const themeColors = {
-      communication:'#2b6cb0', wait_time:'#e53e3e',
-      medication:'#38a169',    discharge:'#805ad5'
-    };
-    const color = themeColors[d.theme] || '#4a5568';
-    box.className    = 'result-box result-theme';
+    const d       = await r.json();
+    const colors  = { 'Anxiety': '#2b6cb0', 'Birth Control': '#38a169', 'Depression': '#805ad5', 'Pain': '#e53e3e' };
+    const color   = colors[d.theme] || '#4a5568';
+    const box     = document.getElementById('themeResult');
+    box.className     = 'result-box result-theme';
     box.style.display = 'block';
-    box.innerHTML = `
-      <strong style="color:${color}">🏷️ Theme: ${d.theme.replace('_',' ')}</strong>
-      &nbsp;<span style="font-size:.8rem;color:#718096">confidence: ${(d.confidence*100).toFixed(0)}%</span><br>
+    box.innerHTML     = `
+      <strong style="color:${color}">🏷️ Theme: ${d.theme}</strong>
+      &nbsp;<span style="font-size:.8rem;color:#718096">confidence: ${(d.confidence * 100).toFixed(0)}%</span><br>
       <span style="font-size:.85rem;opacity:.85">"${d.text}"</span>
     `;
-  } catch(e) {
-    showResult('themeResult','result-info',`Error: ${e.message}`);
+  } catch (e) {
+    showResult('themeResult', 'result-info', `Error: ${e.message}`);
   }
   btn.innerHTML = 'Predict Theme';
   btn.disabled  = false;
 }
 
-// ── Task 3 : NMF Topics ───────────────────────────────
+// ── Task 3 : NMF ──────────────────────────────────────
 async function loadNMFTopics() {
   const btn = document.getElementById('nmfBtn');
   btn.innerHTML = '<span class="spinner"></span> Loading topics...';
   btn.disabled  = true;
   try {
-    const r = await fetch(`${API}/topics-nmf`);
-    const d = await r.json();
+    const r   = await fetch(`${API}/topics-nmf`);
+    const d   = await r.json();
     const container = document.getElementById('nmfTopics');
     container.innerHTML = Object.entries(d).map(([topic, words]) => `
       <div class="topic-group">
-        <strong>${topic.replace('_',' ').toUpperCase()}</strong>
+        <strong>${topic.replace('_', ' ').toUpperCase()}</strong>
         <div>${words.map(w => `<span class="topic-chip">${w}</span>`).join('')}</div>
       </div>
     `).join('');
-  } catch(e) {
-    document.getElementById('nmfTopics').innerHTML = `<p style="color:#e53e3e;font-size:.85rem">Error: ${e.message}</p>`;
+  } catch (e) {
+    document.getElementById('nmfTopics').innerHTML =
+      `<p style="color:#e53e3e;font-size:.85rem">Error: ${e.message}</p>`;
   }
 }
 
-// ── LLM Insights (samples from real API) ─────────────
+// ── LLM Insights (real samples from API) ─────────────
 async function generateInsight() {
   const theme = document.getElementById('insightTheme').value;
   const btn   = document.getElementById('insightBtn');
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled  = true;
   try {
-    // Fetch real samples from dataset — no hardcoded strings
-    const sr      = await fetch(`${API}/samples?theme=${theme}&n=6`);
+    const sr      = await fetch(`${API}/samples?theme=${encodeURIComponent(theme)}&n=6`);
     const sd      = await sr.json();
     const samples = sd.samples || [];
 
-    const r = await fetch(`${API}/insights`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const r   = await fetch(`${API}/insights`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ theme, samples })
     });
     const d   = await r.json();
     const box = document.getElementById('insightResult');
-    box.style.cssText = 'display:block;background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;padding:.75rem 1rem;border-radius:8px;margin-top:.5rem;font-size:.88rem;line-height:1.6;white-space:pre-wrap;font-style:normal';
+    box.style.cssText = 'display:block;background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;padding:.75rem 1rem;border-radius:8px;font-size:.88rem;line-height:1.6;white-space:pre-wrap;font-style:normal';
     box.textContent   = d.insight;
-  } catch(e) {
-    showResult('insightResult','result-info',`Error: ${e.message}`);
+  } catch (e) {
+    showResult('insightResult', 'result-info', `Error: ${e.message}`);
   }
   btn.innerHTML = 'Generate';
   btn.disabled  = false;
@@ -445,25 +450,25 @@ async function sendChat() {
 
     // Task 1 — Sentiment
     if (lower.startsWith('analyze:') || lower.startsWith('analyse:') || lower.includes('sentiment of')) {
-      const text = msg.replace(/^analy[sz]e:/i,'').replace(/sentiment of/i,'').trim();
-      const r    = await fetch(`${API}/analyze`,{
-        method:'POST', headers:{'Content-Type':'application/json'},
+      const text = msg.replace(/^analy[sz]e:/i, '').replace(/sentiment of/i, '').trim();
+      const r    = await fetch(`${API}/analyze`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
       const d = await r.json();
       thinking.remove();
-      addMsg(`Task 1 — Sentiment: ${d.label==='Positive'?'✅ Positive':'❌ Negative'}\n"${d.text}"`, 'bot');
+      addMsg(`Task 1 — Sentiment: ${d.label === 'Positive' ? '✅ Positive' : '❌ Negative'}\n"${d.text}"`, 'bot');
 
     // Task 2 — Theme
     } else if (lower.startsWith('theme:') || lower.startsWith('classify:')) {
-      const text = msg.replace(/^(theme|classify):/i,'').trim();
-      const r    = await fetch(`${API}/predict-theme`,{
-        method:'POST', headers:{'Content-Type':'application/json'},
+      const text = msg.replace(/^(theme|classify):/i, '').trim();
+      const r    = await fetch(`${API}/predict-theme`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       });
       const d = await r.json();
       thinking.remove();
-      addMsg(`Task 2 — Theme: ${d.theme.replace('_',' ')} (confidence: ${(d.confidence*100).toFixed(0)}%)\n"${d.text}"`, 'bot');
+      addMsg(`Task 2 — Theme: ${d.theme} (confidence: ${(d.confidence * 100).toFixed(0)}%)\n"${d.text}"`, 'bot');
 
     // Task 3 — NMF Topics
     } else if (lower.includes('nmf') || lower.includes('latent') || lower.includes('topic model')) {
@@ -471,34 +476,33 @@ async function sendChat() {
       const d = await r.json();
       thinking.remove();
       const summary = Object.entries(d)
-        .map(([t,words]) => `${t.replace('_',' ').toUpperCase()}: ${words.slice(0,5).join(', ')}`)
+        .map(([t, words]) => `${t.replace('_', ' ').toUpperCase()}: ${words.slice(0, 5).join(', ')}`)
         .join('\n');
       addMsg(`Task 3 — NMF Latent Topics:\n\n${summary}`, 'bot');
 
-    // Stats / Distribution
-    } else if (lower.includes('topic') || lower.includes('stats') || lower.includes('distribution') || lower.includes('data')) {
+    // Stats
+    } else if (lower.includes('show topic') || lower.includes('show data') || lower.includes('stats') || lower.includes('distribution')) {
       const r = await fetch(`${API}/topics`);
       const d = await r.json();
       thinking.remove();
       const summary = Object.entries(d)
-        .map(([t,v]) => `• ${t.replace('_',' ')}: ${v.total} feedbacks — ${v.positive} positive, ${v.negative} negative (avg sat: ${v.avg_satisfaction}/5)`)
+        .map(([t, v]) => `• ${t}: ${v.total} feedbacks — ${v.positive} positive, ${v.negative} negative (avg sat: ${v.avg_satisfaction}/5)`)
         .join('\n');
       addMsg(`Dataset statistics:\n\n${summary}`, 'bot');
 
     // LLM Insights
     } else if (lower.includes('insight') || lower.includes('insights for') || lower.includes('analysis for')) {
-      const themeMatch = ['communication','wait_time','medication','discharge']
-        .find(t => lower.includes(t.replace('_',' ')) || lower.includes(t));
-      const theme = themeMatch || 'communication';
-      const sr    = await fetch(`${API}/samples?theme=${theme}&n=6`);
-      const sd    = await sr.json();
-      const r     = await fetch(`${API}/insights`,{
-        method:'POST', headers:{'Content-Type':'application/json'},
+      const themeMatch = THEMES.find(t => lower.includes(t.toLowerCase()));
+      const theme      = themeMatch || 'Anxiety';
+      const sr         = await fetch(`${API}/samples?theme=${encodeURIComponent(theme)}&n=6`);
+      const sd         = await sr.json();
+      const r          = await fetch(`${API}/insights`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme, samples: sd.samples || [] })
       });
       const d = await r.json();
       thinking.remove();
-      addMsg(`Insight for ${theme.replace('_',' ')}:\n\n${d.insight}`, 'bot');
+      addMsg(`Insight for ${theme}:\n\n${d.insight}`, 'bot');
 
     // MLflow metrics
     } else if (lower.includes('metric') || lower.includes('performance') || lower.includes('model score')) {
@@ -508,19 +512,19 @@ async function sendChat() {
       const t1 = d['1']?.metrics || {};
       const t2 = d['2']?.metrics || {};
       addMsg(
-        `Model metrics:\n\nTask 1 — Sentiment\n  F1 Macro : ${t1.f1_macro?.toFixed(3) ?? 'N/A'}\n  AUC      : ${t1.auc?.toFixed(3) ?? 'N/A'}\n  Recall(-) : ${t1.recall_neg?.toFixed(3) ?? 'N/A'}\n\nTask 2 — Theme\n  Accuracy : ${t2.accuracy?.toFixed(3) ?? 'N/A'}\n  F1 Macro : ${t2.f1_macro?.toFixed(3) ?? 'N/A'}`,
+        `Model metrics:\n\nTask 1 — Sentiment\n  F1 Macro  : ${t1.f1_macro?.toFixed(3) ?? 'N/A'}\n  AUC       : ${t1.auc?.toFixed(3) ?? 'N/A'}\n  Recall(-) : ${t1.recall_neg?.toFixed(3) ?? 'N/A'}\n\nTask 2 — Theme\n  Accuracy  : ${t2.accuracy?.toFixed(3) ?? 'N/A'}\n  F1 Macro  : ${t2.f1_macro?.toFixed(3) ?? 'N/A'}`,
         'bot'
       );
 
-    // Default help
+    // Help
     } else {
       thinking.remove();
       addMsg(
-        `Commands available:\n\n• "Analyze: [text]" — Task 1: sentiment\n• "Theme: [text]" — Task 2: predict theme\n• "Show NMF topics" — Task 3: latent topics\n• "Show topics" — dataset statistics\n• "Insights for [theme]" — LLM insight\n• "Model performance" — MLflow metrics\n\nThemes: communication, wait_time, medication, discharge`,
+        `Commands available:\n\n• "Analyze: [text]"     — Task 1: sentiment\n• "Theme: [text]"       — Task 2: predict theme\n• "Show NMF topics"    — Task 3: latent topics\n• "Show topics"        — dataset statistics\n• "Insights for [theme]" — LLM insight\n• "Model performance"  — MLflow metrics\n\nThemes: Anxiety, Birth Control, Depression, Pain`,
         'bot'
       );
     }
-  } catch(e) {
+  } catch (e) {
     thinking.remove();
     addMsg(`Error: ${e.message}`, 'bot');
   }
@@ -529,21 +533,23 @@ async function sendChat() {
 function addMsg(text, type) {
   const box = document.getElementById('chatBox');
   const div = document.createElement('div');
-  div.className    = type==='user' ? 'msg msg-user' : type==='thinking' ? 'msg msg-thinking' : 'msg msg-bot';
+  div.className    = type === 'user' ? 'msg msg-user' : type === 'thinking' ? 'msg msg-thinking' : 'msg msg-bot';
   div.style.whiteSpace = 'pre-wrap';
-  div.innerHTML    = type==='bot' ? text.replace(/\n/g,'<br>') : '';
-  div.textContent  = type!=='bot' ? text : div.textContent;
-  if (type === 'bot') div.innerHTML = text.replace(/\n/g,'<br>');
+  if (type === 'bot') {
+    div.innerHTML = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  } else {
+    div.textContent = text;
+  }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   return div;
 }
 
 function showResult(id, cls, text) {
-  const box = document.getElementById(id);
-  box.className    = `result-box ${cls}`;
+  const box         = document.getElementById(id);
+  box.className     = `result-box ${cls}`;
   box.style.display = 'block';
-  box.textContent  = text;
+  box.textContent   = text;
 }
 </script>
 </body>

@@ -49,9 +49,9 @@ if __name__ == "__main__":
         try:
             t(); passed += 1
         except AssertionError as e:
-            print(f"  ❌ FAILED: {t.__name__} → {e}"); failed += 1
+            print(f"  FAILED: {t.__name__} → {e}"); failed += 1
         except Exception as e:
-            print(f"  💥 ERROR:  {t.__name__} → {e}"); failed += 1
+            print(f"   ERROR:  {t.__name__} → {e}"); failed += 1
     print("=" * 45)
     print(f"  Result: {passed} passed / {failed} failed")
     print("=" * 45)
