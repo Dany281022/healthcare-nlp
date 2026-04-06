@@ -21,22 +21,32 @@
   .stat-card .num{font-size:2rem;font-weight:700;color:#2b6cb0}
   .stat-card .lbl{font-size:.8rem;color:#718096;margin-top:.25rem}
   .card h2{font-size:1rem;font-weight:600;margin-bottom:1rem;color:#2d3748;border-bottom:2px solid #ebf4ff;padding-bottom:.5rem}
+  .task-label{display:inline-block;font-size:.7rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;margin-left:.5rem;vertical-align:middle}
+  .task-1{background:#c6f6d5;color:#276749}
+  .task-2{background:#bee3f8;color:#2c5282}
+  .task-3{background:#e9d8fd;color:#553c9a}
   textarea{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;font-size:.95rem;resize:vertical;min-height:80px;font-family:inherit;outline:none;transition:border .2s}
   textarea:focus{border-color:#2b6cb0}
   input[type=text]{width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;font-size:.95rem;font-family:inherit;outline:none;transition:border .2s}
   input[type=text]:focus{border-color:#2b6cb0}
   select{border:1px solid #e2e8f0;border-radius:8px;padding:.6rem .75rem;font-size:.9rem;outline:none;background:#fff}
-  btn,.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.25rem;border:none;border-radius:8px;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s}
+  .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.25rem;border:none;border-radius:8px;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s}
   .btn-primary{background:#2b6cb0;color:#fff}
   .btn-primary:hover{background:#2c5282}
   .btn-secondary{background:#edf2f7;color:#4a5568}
   .btn-secondary:hover{background:#e2e8f0}
+  .btn-purple{background:#805ad5;color:#fff}
+  .btn-purple:hover{background:#6b46c1}
   .result-box{margin-top:1rem;padding:.75rem 1rem;border-radius:8px;font-size:.9rem;line-height:1.6;display:none}
   .result-positive{background:#f0fff4;border-left:4px solid #38a169;color:#276749}
   .result-negative{background:#fff5f5;border-left:4px solid #e53e3e;color:#c53030}
   .result-info{background:#ebf8ff;border-left:4px solid #3182ce;color:#2c5282}
+  .result-theme{background:#ebf8ff;border-left:4px solid #3182ce;color:#2c5282}
   .result-insight{background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;white-space:pre-wrap}
-  .chat-box{height:320px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;background:#f7fafc;margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem}
+  .topic-chip{display:inline-block;background:#e9d8fd;color:#553c9a;border-radius:6px;padding:.2rem .55rem;font-size:.78rem;margin:.15rem}
+  .topic-group{margin-bottom:.75rem}
+  .topic-group strong{font-size:.82rem;color:#4a5568;display:block;margin-bottom:.3rem}
+  .chat-box{height:360px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:.75rem;background:#f7fafc;margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem}
   .msg{padding:.6rem .9rem;border-radius:10px;max-width:85%;font-size:.9rem;line-height:1.5}
   .msg-user{background:#2b6cb0;color:#fff;align-self:flex-end;border-bottom-right-radius:3px}
   .msg-bot{background:#fff;color:#2d3748;align-self:flex-start;border:1px solid #e2e8f0;border-bottom-left-radius:3px}
@@ -52,9 +62,6 @@
   .tag-neg{background:#fed7d7;color:#c53030}
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.4rem}
-  .dot-green{background:#38a169}
-  .dot-red{background:#e53e3e}
   @media(max-width:768px){.grid-4,.grid-2,.grid-3{grid-template-columns:1fr}}
 </style>
 </head>
@@ -63,11 +70,12 @@
 <header>
   <div>
     <h1>Healthcare Feedback Dashboard</h1>
-    <span>NLP + LLM Analysis — Cambrian College AI Program</span>
+    <span>Task 1: Sentiment · Task 2: Theme · Task 3: NMF Topics · LLM Insights — Cambrian College AI Program</span>
   </div>
   <div style="margin-left:auto;display:flex;gap:.75rem;align-items:center">
     <span class="badge" id="api-status">⏳ Connecting...</span>
     <span class="badge" id="model-status">⏳ Model...</span>
+    <span class="badge" id="run-badge" style="display:none"></span>
   </div>
 </header>
 
@@ -76,7 +84,7 @@
   <!-- KPI Cards -->
   <div class="grid-4">
     <div class="card stat-card">
-      <div class="num" id="kpi-total">1,000</div>
+      <div class="num" id="kpi-total">—</div>
       <div class="lbl">Total Feedback</div>
     </div>
     <div class="card stat-card">
@@ -96,7 +104,7 @@
   <!-- Charts + Theme Bars -->
   <div class="grid-2">
     <div class="card">
-      <h2>Sentiment Distribution by Theme</h2>
+      <h2>Sentiment Distribution by Theme <span class="task-label task-1">Task 1</span></h2>
       <div style="position:relative;height:240px">
         <canvas id="barChart"></canvas>
       </div>
@@ -107,35 +115,59 @@
     </div>
   </div>
 
-  <!-- Donut + Analyze + Insights -->
+  <!-- Donut + Task 1 Analyze + Task 2 Theme -->
   <div class="grid-3">
 
     <!-- Donut -->
     <div class="card">
-      <h2>Overall Sentiment</h2>
+      <h2>Overall Sentiment <span class="task-label task-1">Task 1</span></h2>
       <div style="position:relative;height:200px">
         <canvas id="donutChart"></canvas>
       </div>
     </div>
 
-    <!-- Analyze -->
+    <!-- Task 1 : Sentiment Analysis -->
     <div class="card">
-      <h2>Analyze Feedback</h2>
+      <h2>Analyze Feedback <span class="task-label task-1">Task 1</span></h2>
       <textarea id="analyzeInput" placeholder="Type patient feedback here...
 e.g. The doctor explained everything clearly."></textarea>
-      <div style="margin-top:.75rem;display:flex;gap:.5rem">
-        <button class="btn btn-primary" onclick="analyzeFeedback()" id="analyzeBtn">
-          Analyze
-        </button>
+      <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="analyzeFeedback()" id="analyzeBtn">Analyze Sentiment</button>
         <button class="btn btn-secondary" onclick="clearAnalyze()">Clear</button>
       </div>
       <div class="result-box" id="analyzeResult"></div>
     </div>
 
+    <!-- Task 2 : Theme Classification -->
+    <div class="card">
+      <h2>Predict Theme <span class="task-label task-2">Task 2</span></h2>
+      <textarea id="themeInput" placeholder="Type patient feedback here...
+e.g. I waited 3 hours before seeing a doctor."></textarea>
+      <div style="margin-top:.75rem;display:flex;gap:.5rem">
+        <button class="btn btn-primary" onclick="predictTheme()" id="themeBtn">Predict Theme</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('themeInput').value='';document.getElementById('themeResult').style.display='none'">Clear</button>
+      </div>
+      <div class="result-box result-theme" id="themeResult"></div>
+    </div>
+
+  </div>
+
+  <!-- Task 3 : NMF Topics + LLM Insights -->
+  <div class="grid-2">
+
+    <!-- Task 3 : NMF Topic Modeling -->
+    <div class="card">
+      <h2>NMF Topic Modeling <span class="task-label task-3">Task 3</span></h2>
+      <p style="font-size:.82rem;color:#718096;margin-bottom:.75rem">Latent topics extracted from the full TF-IDF matrix — unsupervised, no labels.</p>
+      <div id="nmfTopics">
+        <button class="btn btn-purple" onclick="loadNMFTopics()" id="nmfBtn">Load NMF Topics</button>
+      </div>
+    </div>
+
     <!-- LLM Insights -->
     <div class="card">
       <h2>Generate LLM Insight</h2>
-      <div style="margin-bottom:.75rem;display:flex;gap:.5rem;align-items:center">
+      <div style="margin-bottom:.75rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
         <label style="font-size:.85rem;color:#4a5568">Theme:</label>
         <select id="insightTheme">
           <option value="communication">Communication</option>
@@ -146,7 +178,7 @@ e.g. The doctor explained everything clearly."></textarea>
         <button class="btn btn-primary" onclick="generateInsight()" id="insightBtn">Generate</button>
       </div>
       <div class="result-box result-insight" id="insightResult" style="display:block;min-height:120px;color:#718096;font-style:italic">
-        Select a theme and click Generate to get an AI-powered insight...
+        Select a theme and click Generate to get an AI-powered insight from real feedback data...
       </div>
     </div>
 
@@ -156,10 +188,18 @@ e.g. The doctor explained everything clearly."></textarea>
   <div class="card" style="margin-bottom:1.5rem">
     <h2>Chat with your Healthcare Data</h2>
     <div class="chat-box" id="chatBox">
-      <div class="msg msg-bot">Hello! I can analyze patient feedback sentiment and generate healthcare insights. Try asking me something like <strong>"Analyze: The waiting time was too long"</strong> or <strong>"Insights for wait_time"</strong>.</div>
+      <div class="msg msg-bot">Hello! I can run all 3 NLP tasks on patient feedback.<br><br>
+        <strong>Task 1 — Sentiment:</strong> "Analyze: The waiting time was too long"<br>
+        <strong>Task 2 — Theme:</strong> "Theme: The nurse explained my medication clearly"<br>
+        <strong>Task 3 — Topics:</strong> "Show NMF topics"<br>
+        <strong>Stats:</strong> "Show topics" or "Show data"<br>
+        <strong>Insights:</strong> "Insights for wait_time"
+      </div>
     </div>
     <div class="chat-input-row">
-      <input type="text" id="chatInput" placeholder='Try: "Analyze: The nurse was very kind" or "Insights for communication"' onkeydown="if(event.key==='Enter')sendChat()"/>
+      <input type="text" id="chatInput"
+        placeholder='Try: "Analyze: The nurse was kind" | "Theme: I waited 3 hours" | "Show NMF topics"'
+        onkeydown="if(event.key==='Enter')sendChat()"/>
       <button class="btn btn-primary" onclick="sendChat()">Send</button>
     </div>
   </div>
@@ -167,12 +207,13 @@ e.g. The doctor explained everything clearly."></textarea>
 </div>
 
 <script>
-const API = '';  // Same origin — FastAPI serves this page
+const API = '';
 
-// ── Boot ─────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────
 window.addEventListener('load', async () => {
   await checkHealth();
   await loadTopics();
+  await loadMLflowBadge();
 });
 
 // ── Health check ──────────────────────────────────────
@@ -180,11 +221,30 @@ async function checkHealth() {
   try {
     const r = await fetch(`${API}/health`);
     const d = await r.json();
-    document.getElementById('api-status').textContent  = '✅ API Online';
+    document.getElementById('api-status').textContent   = '✅ API Online';
     document.getElementById('model-status').textContent = d.model_loaded ? '✅ Model Ready' : '⚠️ Model Not Loaded';
+    if (!d.model_loaded) {
+      document.getElementById('analyzeBtn').disabled = true;
+      document.getElementById('themeBtn').disabled   = true;
+    }
   } catch {
     document.getElementById('api-status').textContent = '❌ API Offline';
   }
+}
+
+// ── MLflow badge ──────────────────────────────────────
+async function loadMLflowBadge() {
+  try {
+    const r = await fetch(`${API}/metrics`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const task1 = d['1'];
+    if (task1?.run_id) {
+      const badge = document.getElementById('run-badge');
+      badge.textContent = `Run: ${task1.run_id.slice(0,8)}`;
+      badge.style.display = 'inline-block';
+    }
+  } catch {}
 }
 
 // ── Load topics + render charts ───────────────────────
@@ -199,12 +259,14 @@ async function loadTopics() {
     const totals    = themes.map(t => d[t].total);
     const sats      = themes.map(t => d[t].avg_satisfaction);
 
-    const totalPos = positives.reduce((a,b)=>a+b,0);
-    const totalNeg = negatives.reduce((a,b)=>a+b,0);
-    document.getElementById('kpi-pos').textContent = totalPos;
-    document.getElementById('kpi-neg').textContent = totalNeg;
+    const totalPos   = positives.reduce((a,b) => a+b, 0);
+    const totalNeg   = negatives.reduce((a,b) => a+b, 0);
+    const grandTotal = totals.reduce((a,b)    => a+b, 0);
 
-    // Bar chart
+    document.getElementById('kpi-total').textContent = grandTotal.toLocaleString();
+    document.getElementById('kpi-pos').textContent   = totalPos;
+    document.getElementById('kpi-neg').textContent   = totalNeg;
+
     new Chart(document.getElementById('barChart'), {
       type: 'bar',
       data: {
@@ -221,7 +283,6 @@ async function loadTopics() {
       }
     });
 
-    // Donut chart
     new Chart(document.getElementById('donutChart'), {
       type: 'doughnut',
       data: {
@@ -234,13 +295,16 @@ async function loadTopics() {
       }
     });
 
-    // Satisfaction bars
     const maxSat = 5;
     const colors = ['#2b6cb0','#38a169','#d69e2e','#805ad5'];
     document.getElementById('themeBars').innerHTML = themes.map((t,i) => `
       <div class="theme-bar">
         <div class="label-row">
-          <span>${t.replace('_',' ')} <span class="tag ${d[t].positive>d[t].negative?'tag-pos':'tag-neg'}">${d[t].positive>d[t].negative?'Mostly Positive':'Mostly Negative'}</span></span>
+          <span>${t.replace('_',' ')}
+            <span class="tag ${d[t].positive>d[t].negative?'tag-pos':'tag-neg'}">
+              ${d[t].positive>d[t].negative?'Mostly Positive':'Mostly Negative'}
+            </span>
+          </span>
           <span><strong>${sats[i]}</strong>/5</span>
         </div>
         <div class="bar-bg">
@@ -254,23 +318,21 @@ async function loadTopics() {
   }
 }
 
-// ── Analyze feedback ──────────────────────────────────
+// ── Task 1 : Sentiment ────────────────────────────────
 async function analyzeFeedback() {
   const text = document.getElementById('analyzeInput').value.trim();
   if (!text) return;
   const btn = document.getElementById('analyzeBtn');
   btn.innerHTML = '<span class="spinner"></span> Analyzing...';
-  btn.disabled = true;
-
+  btn.disabled  = true;
   try {
     const r = await fetch(`${API}/analyze`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ text })
     });
-    const d = await r.json();
+    const d   = await r.json();
     const box = document.getElementById('analyzeResult');
-    box.className = `result-box ${d.prediction===1?'result-positive':'result-negative'}`;
+    box.className    = `result-box ${d.prediction===1?'result-positive':'result-negative'}`;
     box.style.display = 'block';
     box.innerHTML = `
       <strong>${d.prediction===1?'✅ Positive':'❌ Negative'} Sentiment</strong><br>
@@ -279,40 +341,88 @@ async function analyzeFeedback() {
   } catch(e) {
     showResult('analyzeResult','result-info',`Error: ${e.message}`);
   }
-  btn.innerHTML = 'Analyze';
-  btn.disabled = false;
+  btn.innerHTML = 'Analyze Sentiment';
+  btn.disabled  = false;
 }
 
 function clearAnalyze() {
   document.getElementById('analyzeInput').value = '';
-  const box = document.getElementById('analyzeResult');
-  box.style.display = 'none';
+  document.getElementById('analyzeResult').style.display = 'none';
 }
 
-// ── Generate LLM insight ──────────────────────────────
+// ── Task 2 : Theme Prediction ─────────────────────────
+async function predictTheme() {
+  const text = document.getElementById('themeInput').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('themeBtn');
+  btn.innerHTML = '<span class="spinner"></span> Predicting...';
+  btn.disabled  = true;
+  try {
+    const r = await fetch(`${API}/predict-theme`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    const d   = await r.json();
+    const box = document.getElementById('themeResult');
+    const themeColors = {
+      communication:'#2b6cb0', wait_time:'#e53e3e',
+      medication:'#38a169',    discharge:'#805ad5'
+    };
+    const color = themeColors[d.theme] || '#4a5568';
+    box.className    = 'result-box result-theme';
+    box.style.display = 'block';
+    box.innerHTML = `
+      <strong style="color:${color}">🏷️ Theme: ${d.theme.replace('_',' ')}</strong>
+      &nbsp;<span style="font-size:.8rem;color:#718096">confidence: ${(d.confidence*100).toFixed(0)}%</span><br>
+      <span style="font-size:.85rem;opacity:.85">"${d.text}"</span>
+    `;
+  } catch(e) {
+    showResult('themeResult','result-info',`Error: ${e.message}`);
+  }
+  btn.innerHTML = 'Predict Theme';
+  btn.disabled  = false;
+}
+
+// ── Task 3 : NMF Topics ───────────────────────────────
+async function loadNMFTopics() {
+  const btn = document.getElementById('nmfBtn');
+  btn.innerHTML = '<span class="spinner"></span> Loading topics...';
+  btn.disabled  = true;
+  try {
+    const r = await fetch(`${API}/topics-nmf`);
+    const d = await r.json();
+    const container = document.getElementById('nmfTopics');
+    container.innerHTML = Object.entries(d).map(([topic, words]) => `
+      <div class="topic-group">
+        <strong>${topic.replace('_',' ').toUpperCase()}</strong>
+        <div>${words.map(w => `<span class="topic-chip">${w}</span>`).join('')}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('nmfTopics').innerHTML = `<p style="color:#e53e3e;font-size:.85rem">Error: ${e.message}</p>`;
+  }
+}
+
+// ── LLM Insights (samples from real API) ─────────────
 async function generateInsight() {
   const theme = document.getElementById('insightTheme').value;
   const btn   = document.getElementById('insightBtn');
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled  = true;
-
-  const samples = {
-    communication: ["Doctor explained everything clearly","Nurse was very kind","Too much medical jargon","Staff was responsive"],
-    wait_time:     ["Wait time was too long","I waited 3 hours","Quick service today","Appointment was on time"],
-    medication:    ["Medication instructions were clear","Wrong dosage prescribed","Pharmacy was helpful","Side effects not explained"],
-    discharge:     ["Discharge process was smooth","Instructions unclear at discharge","Left without proper guidance","Follow-up was well organized"],
-  };
-
   try {
+    // Fetch real samples from dataset — no hardcoded strings
+    const sr      = await fetch(`${API}/samples?theme=${theme}&n=6`);
+    const sd      = await sr.json();
+    const samples = sd.samples || [];
+
     const r = await fetch(`${API}/insights`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ theme, samples: samples[theme] })
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ theme, samples })
     });
-    const d = await r.json();
+    const d   = await r.json();
     const box = document.getElementById('insightResult');
     box.style.cssText = 'display:block;background:#faf5ff;border-left:4px solid #805ad5;color:#44337a;padding:.75rem 1rem;border-radius:8px;margin-top:.5rem;font-size:.88rem;line-height:1.6;white-space:pre-wrap;font-style:normal';
-    box.textContent = d.insight;
+    box.textContent   = d.insight;
   } catch(e) {
     showResult('insightResult','result-info',`Error: ${e.message}`);
   }
@@ -320,7 +430,7 @@ async function generateInsight() {
   btn.disabled  = false;
 }
 
-// ── Chat interface ────────────────────────────────────
+// ── Chat ──────────────────────────────────────────────
 async function sendChat() {
   const input = document.getElementById('chatInput');
   const msg   = input.value.trim();
@@ -333,7 +443,7 @@ async function sendChat() {
   try {
     const lower = msg.toLowerCase();
 
-    // Route: analyze intent
+    // Task 1 — Sentiment
     if (lower.startsWith('analyze:') || lower.startsWith('analyse:') || lower.includes('sentiment of')) {
       const text = msg.replace(/^analy[sz]e:/i,'').replace(/sentiment of/i,'').trim();
       const r    = await fetch(`${API}/analyze`,{
@@ -342,53 +452,88 @@ async function sendChat() {
       });
       const d = await r.json();
       thinking.remove();
-      addMsg(`Sentiment: ${d.label === 'Positive' ? '✅ Positive' : '❌ Negative'}\n"${d.text}"`, 'bot');
+      addMsg(`Task 1 — Sentiment: ${d.label==='Positive'?'✅ Positive':'❌ Negative'}\n"${d.text}"`, 'bot');
 
-    // Route: insights intent
-    } else if (lower.includes('insight') || lower.includes('analysis for') || lower.includes('insights for')) {
-      const themeMatch = ['communication','wait_time','medication','discharge'].find(t => lower.includes(t.replace('_',' ')) || lower.includes(t));
-      const theme = themeMatch || 'communication';
-      const samples = {
-        communication:["Doctor explained clearly","Nurse was kind","Too much jargon","Staff responsive"],
-        wait_time:["Wait too long","Waited 3 hours","Quick service","On time"],
-        medication:["Instructions clear","Wrong dosage","Pharmacy helpful","Side effects unexplained"],
-        discharge:["Smooth discharge","Unclear instructions","Left without guidance","Good follow-up"],
-      };
-      const r = await fetch(`${API}/insights`,{
+    // Task 2 — Theme
+    } else if (lower.startsWith('theme:') || lower.startsWith('classify:')) {
+      const text = msg.replace(/^(theme|classify):/i,'').trim();
+      const r    = await fetch(`${API}/predict-theme`,{
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ theme, samples: samples[theme] })
+        body: JSON.stringify({ text })
+      });
+      const d = await r.json();
+      thinking.remove();
+      addMsg(`Task 2 — Theme: ${d.theme.replace('_',' ')} (confidence: ${(d.confidence*100).toFixed(0)}%)\n"${d.text}"`, 'bot');
+
+    // Task 3 — NMF Topics
+    } else if (lower.includes('nmf') || lower.includes('latent') || lower.includes('topic model')) {
+      const r = await fetch(`${API}/topics-nmf`);
+      const d = await r.json();
+      thinking.remove();
+      const summary = Object.entries(d)
+        .map(([t,words]) => `${t.replace('_',' ').toUpperCase()}: ${words.slice(0,5).join(', ')}`)
+        .join('\n');
+      addMsg(`Task 3 — NMF Latent Topics:\n\n${summary}`, 'bot');
+
+    // Stats / Distribution
+    } else if (lower.includes('topic') || lower.includes('stats') || lower.includes('distribution') || lower.includes('data')) {
+      const r = await fetch(`${API}/topics`);
+      const d = await r.json();
+      thinking.remove();
+      const summary = Object.entries(d)
+        .map(([t,v]) => `• ${t.replace('_',' ')}: ${v.total} feedbacks — ${v.positive} positive, ${v.negative} negative (avg sat: ${v.avg_satisfaction}/5)`)
+        .join('\n');
+      addMsg(`Dataset statistics:\n\n${summary}`, 'bot');
+
+    // LLM Insights
+    } else if (lower.includes('insight') || lower.includes('insights for') || lower.includes('analysis for')) {
+      const themeMatch = ['communication','wait_time','medication','discharge']
+        .find(t => lower.includes(t.replace('_',' ')) || lower.includes(t));
+      const theme = themeMatch || 'communication';
+      const sr    = await fetch(`${API}/samples?theme=${theme}&n=6`);
+      const sd    = await sr.json();
+      const r     = await fetch(`${API}/insights`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ theme, samples: sd.samples || [] })
       });
       const d = await r.json();
       thinking.remove();
       addMsg(`Insight for ${theme.replace('_',' ')}:\n\n${d.insight}`, 'bot');
 
-    // Route: topics/stats
-    } else if (lower.includes('topic') || lower.includes('stats') || lower.includes('distribution') || lower.includes('data')) {
-      const r = await fetch(`${API}/topics`);
+    // MLflow metrics
+    } else if (lower.includes('metric') || lower.includes('performance') || lower.includes('model score')) {
+      const r = await fetch(`${API}/metrics`);
       const d = await r.json();
       thinking.remove();
-      const summary = Object.entries(d).map(([t,v]) =>
-        `• ${t.replace('_',' ')}: ${v.total} feedbacks — ${v.positive} positive, ${v.negative} negative (avg satisfaction: ${v.avg_satisfaction}/5)`
-      ).join('\n');
-      addMsg(`Here are the topic statistics:\n\n${summary}`, 'bot');
+      const t1 = d['1']?.metrics || {};
+      const t2 = d['2']?.metrics || {};
+      addMsg(
+        `Model metrics:\n\nTask 1 — Sentiment\n  F1 Macro : ${t1.f1_macro?.toFixed(3) ?? 'N/A'}\n  AUC      : ${t1.auc?.toFixed(3) ?? 'N/A'}\n  Recall(-) : ${t1.recall_neg?.toFixed(3) ?? 'N/A'}\n\nTask 2 — Theme\n  Accuracy : ${t2.accuracy?.toFixed(3) ?? 'N/A'}\n  F1 Macro : ${t2.f1_macro?.toFixed(3) ?? 'N/A'}`,
+        'bot'
+      );
 
-    // Default
+    // Default help
     } else {
       thinking.remove();
-      addMsg(`I can help you with:\n• "Analyze: [feedback text]" — predict sentiment\n• "Insights for [theme]" — get AI analysis\n• "Show topics" — see data distribution\n\nThemes available: communication, wait_time, medication, discharge`, 'bot');
+      addMsg(
+        `Commands available:\n\n• "Analyze: [text]" — Task 1: sentiment\n• "Theme: [text]" — Task 2: predict theme\n• "Show NMF topics" — Task 3: latent topics\n• "Show topics" — dataset statistics\n• "Insights for [theme]" — LLM insight\n• "Model performance" — MLflow metrics\n\nThemes: communication, wait_time, medication, discharge`,
+        'bot'
+      );
     }
   } catch(e) {
     thinking.remove();
-    addMsg(`Sorry, something went wrong: ${e.message}`, 'bot');
+    addMsg(`Error: ${e.message}`, 'bot');
   }
 }
 
 function addMsg(text, type) {
   const box = document.getElementById('chatBox');
   const div = document.createElement('div');
-  div.className = type === 'user' ? 'msg msg-user' : type === 'thinking' ? 'msg msg-thinking' : 'msg msg-bot';
+  div.className    = type==='user' ? 'msg msg-user' : type==='thinking' ? 'msg msg-thinking' : 'msg msg-bot';
   div.style.whiteSpace = 'pre-wrap';
-  div.textContent = text;
+  div.innerHTML    = type==='bot' ? text.replace(/\n/g,'<br>') : '';
+  div.textContent  = type!=='bot' ? text : div.textContent;
+  if (type === 'bot') div.innerHTML = text.replace(/\n/g,'<br>');
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   return div;
@@ -396,9 +541,9 @@ function addMsg(text, type) {
 
 function showResult(id, cls, text) {
   const box = document.getElementById(id);
-  box.className = `result-box ${cls}`;
+  box.className    = `result-box ${cls}`;
   box.style.display = 'block';
-  box.textContent = text;
+  box.textContent  = text;
 }
 </script>
 </body>

@@ -1,0 +1,50 @@
+{
+  "topic_1": [
+    "period",
+    "month",
+    "birth",
+    "pill",
+    "control",
+    "birth control",
+    "ive",
+    "weight",
+    "first",
+    "got"
+  ],
+  "topic_2": [
+    "anxiety",
+    "depression",
+    "feel",
+    "life",
+    "taking",
+    "day",
+    "take",
+    "like",
+    "attack",
+    "medication"
+  ],
+  "topic_3": [
+    "pain",
+    "back",
+    "work",
+    "take",
+    "relief",
+    "hour",
+    "back pain",
+    "day",
+    "medicine",
+    "doctor"
+  ],
+  "topic_4": [
+    "effect",
+    "side effect",
+    "side",
+    "experienced",
+    "nausea",
+    "negative",
+    "bad side",
+    "great",
+    "far",
+    "negative side"
+  ]
+}
