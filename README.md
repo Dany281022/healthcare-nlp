@@ -94,7 +94,8 @@ Raw Text
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/healthcare-nlp.git
+git clone https://github.com/Dany281022/healthcare-nlp
+
 cd healthcare-nlp
 python -m venv venv
 .\venv\Scripts\activate        # Windows
