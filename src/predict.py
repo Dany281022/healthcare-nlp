@@ -125,9 +125,13 @@ def get_topic_distribution(data_path: str = DATA_PATH) -> dict:
 
     Handles missing or all-NaN Satisfaction column gracefully.
     """
-    df     = _load_dataset(data_path)
-    result = {}
+    try:
+        df = _load_dataset(data_path)
+    except Exception as e:
+        print(f"[ERROR] Cannot load dataset from '{data_path}': {e}")
+        return {}
 
+    result = {}
     for theme in THEMES:
         subset = df[df[THEME_COL] == theme]
         pos    = int((subset[LABEL_COL] == 1).sum())
