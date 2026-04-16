@@ -14,7 +14,7 @@
 
 **Deployed on Render:** [https://healthcare-nlp.onrender.com](https://healthcare-nlp.onrender.com)
 
-> ⚠️ The app runs on Render's free tier — if inactive, it may take **30–60 seconds** to wake up on first load.
+> The app runs on Render's free tier — if inactive, it may take **30–60 seconds** to wake up on first load.
 
 | Endpoint | URL |
 |----------|-----|
@@ -336,5 +336,3 @@ Both issues are fixed in the current version.
 ---
 
 *Cambrian College — AI & Machine Learning Program — NLP Course — Winter 2026*
-t e s t   c h a n g e  
- 
