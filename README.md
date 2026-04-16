@@ -5,7 +5,28 @@
 [![Python](https://img.shields.io/badge/Python-3.10-blue)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)](https://fastapi.tiangolo.com)
 [![MLflow](https://img.shields.io/badge/MLflow-tracked-orange)](https://mlflow.org)
+[![Live](https://img.shields.io/badge/Live-Render-46E3B7)](https://healthcare-nlp.onrender.com)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
+
+---
+
+## 🚀 Live Demo
+
+**Deployed on Render:** [https://healthcare-nlp.onrender.com](https://healthcare-nlp.onrender.com)
+
+> ⚠️ The app runs on Render's free tier — if inactive, it may take **30–60 seconds** to wake up on first load.
+
+| Endpoint | URL |
+|----------|-----|
+| Dashboard | [https://healthcare-nlp.onrender.com](https://healthcare-nlp.onrender.com) |
+| Health Check | [https://healthcare-nlp.onrender.com/health](https://healthcare-nlp.onrender.com/health) |
+| NMF Topics | [https://healthcare-nlp.onrender.com/topics-nmf](https://healthcare-nlp.onrender.com/topics-nmf) |
+| MLflow Metrics | [https://healthcare-nlp.onrender.com/metrics](https://healthcare-nlp.onrender.com/metrics) |
+
+**Health check response:**
+```json
+{"status": "ok", "model_loaded": true}
+```
 
 ---
 
@@ -171,7 +192,7 @@ mlflow ui
 
 ---
 
-## Running the API
+## Running the API Locally
 
 ```bash
 uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
@@ -183,7 +204,7 @@ Open `http://localhost:8000` to access the dashboard.
 
 | Method | Endpoint | Task | Description |
 |--------|----------|------|-------------|
-| GET | `/health` | — | API + model status |
+| GET | `/health` | — | API + model status → `{"status":"ok","model_loaded":true}` |
 | POST | `/analyze` | Task 1 | Predict sentiment (Positive/Negative) |
 | POST | `/predict-theme` | Task 2 | Predict theme (4 classes) |
 | GET | `/topics-nmf` | Task 3 | NMF latent topics + top words |
@@ -195,18 +216,22 @@ Open `http://localhost:8000` to access the dashboard.
 ### Example requests
 
 ```bash
+# Health check
+curl https://healthcare-nlp.onrender.com/health
+# → {"status":"ok","model_loaded":true}
+
 # Task 1 — Sentiment
-curl -X POST http://localhost:8000/analyze \
+curl -X POST https://healthcare-nlp.onrender.com/analyze \
   -H "Content-Type: application/json" \
   -d '{"text": "This medication completely changed my life for the better."}'
 
 # Task 2 — Theme
-curl -X POST http://localhost:8000/predict-theme \
+curl -X POST https://healthcare-nlp.onrender.com/predict-theme \
   -H "Content-Type: application/json" \
   -d '{"text": "I have been struggling with anxiety attacks every morning."}'
 
 # Task 3 — NMF Topics
-curl http://localhost:8000/topics-nmf
+curl https://healthcare-nlp.onrender.com/topics-nmf
 ```
 
 ---
@@ -227,7 +252,9 @@ Services started:
 
 ## Deployment on Render
 
-The project is configured for Render via `render.yaml`.
+The project is deployed and live at **[https://healthcare-nlp.onrender.com](https://healthcare-nlp.onrender.com)**.
+
+The project is configured for Render via `render.yaml`. To redeploy:
 
 ```bash
 git add .
@@ -307,6 +334,5 @@ Both issues are fixed in the current version.
 | Deployment | Docker + Render |
 
 ---
-
 
 *Cambrian College — AI & Machine Learning Program — NLP Course — Winter 2026*

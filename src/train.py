@@ -1,302 +1,225 @@
-# src/train.py
+# api/main.py
 """
-Model training — 3 tâches du projet Cambrian Healthcare NLP.
+FastAPI application — Healthcare Patient Feedback Analysis.
+Serves the dashboard frontend + REST endpoints.
 
-Task 1 : Sentiment classification  (supervisé  — LogisticRegression / LinearSVC)
-         Target : Sentiment (0 = Negative, 1 = Positive)
-         Métriques : accuracy, f1_macro, f1_weighted, auc, recall_neg, precision_neg
-
-Task 2 : Theme classification      (supervisé  — LogisticRegression multiclasse)
-         Target : Theme (communication, wait_time, medication, discharge)
-         Métriques : accuracy, f1_macro
-
-Task 3 : NMF Topic Modeling        (non supervisé — NMF sur matrice TF-IDF)
-         Pas de labels. Extrait 4 topics latents + top mots par topic.
-         Métriques : reconstruction_error (loggué dans MLflow)
-
-Pipeline mathématique : TF-IDF → modèles linéaires (LR, SVC, NMF)
-Tout est tracké dans MLflow sous le même experiment.
+Task 1 : POST /analyze          — sentiment prediction
+Task 2 : POST /predict-theme    — theme prediction
+Task 3 : GET  /topics-nmf       — NMF latent topics
+         GET  /topics           — sentiment distribution by theme (dashboard)
+         POST /insights         — LLM insight from real feedback samples
+         GET  /samples          — real feedback samples by theme
+         GET  /metrics          — MLflow latest run metrics
+         GET  /health           — API + model status
 """
 import os
-import json
 import joblib
-import mlflow
-import mlflow.sklearn
-import numpy as np
-from sklearn.svm import LinearSVC
-from sklearn.linear_model import LogisticRegression
-from sklearn.decomposition import NMF
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    recall_score,
-    precision_score,
-    roc_auc_score,
-    classification_report,
-)
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from config import (
-    MODEL_PATH,
-    SENTIMENT_MODEL_PATH,
-    THEME_MODEL_PATH,
-    NMF_MODEL_PATH,
+    MODEL_PATH, DATA_PATH, THEMES,
+    MLFLOW_TRACKING_URI, EXPERIMENT_NAME,
     TFIDF_PATH,
-    MLFLOW_TRACKING_URI,
-    EXPERIMENT_NAME,
-    DATA_PATH,
-    NMF_N_COMPONENTS,
-    NMF_MAX_ITER,
-    NMF_TOP_WORDS,
-    THEMES,
 )
-from src.preprocess import load_and_preprocess, build_features
+from src.preprocess import clean_text
+from src.predict import (
+    predict_sentiment,
+    predict_theme,
+    get_topics_nmf,
+    get_topic_distribution,
+    get_real_samples,
+    generate_llm_insight,
+)
+
+app = FastAPI(
+    title="Healthcare Feedback API",
+    description="Task 1: Sentiment | Task 2: Theme | Task 3: NMF Topics | LLM Insights",
+    version="2.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+Instrumentator().instrument(app).expose(app)
 
 
-# ── Shared setup ───────────────────────────────────────
-def _setup():
-    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(EXPERIMENT_NAME)
+# ── Load models on startup ─────────────────────────────
+sentiment_model = None
+vectorizer      = None
+
+@app.on_event("startup")
+def load_models() -> None:
+    """Load Task 1 sentiment model + shared TF-IDF vectorizer at startup."""
+    global sentiment_model, vectorizer
+    get_topic_distribution.cache_clear()
+    try:
+        sentiment_model = joblib.load(MODEL_PATH)
+        try:
+            vectorizer = joblib.load(TFIDF_PATH)
+        except FileNotFoundError:
+            vectorizer = joblib.load(MODEL_PATH.replace(".pkl", "_vectorizer.pkl"))
+        print("[API] Sentiment model + vectorizer loaded.")
+    except FileNotFoundError:
+        print("[API] WARNING: Models not found. Run src/train.py first.")
 
 
-# ══════════════════════════════════════════════════════
-# TASK 1 — Sentiment Classification
-# ══════════════════════════════════════════════════════
-def train_sentiment(
-    X_train, X_test,
-    y_train, y_test,
-    model_type: str = "svm",
-) -> dict:
-    """
-    Task 1 : binary sentiment classifier (Positive / Negative).
+# ── Schemas ────────────────────────────────────────────
+class FeedbackRequest(BaseModel):
+    text: str
 
-    Args:
-        model_type: 'svm' (LinearSVC) or 'lr' (LogisticRegression)
-    Returns:
-        dict of all tracked metrics
-    """
-    if model_type == "svm":
-        model = LinearSVC(max_iter=2000, C=1.0)
-    else:
-        model = LogisticRegression(max_iter=1000, C=1.0, solver="lbfgs")
+class InsightRequest(BaseModel):
+    theme: str   = "general"
+    samples: list[str] = []
 
-    with mlflow.start_run(
-        run_name=f"task1_sentiment_{model_type}",
-        tags={"task": "1", "type": "sentiment_classification", "model": model_type},
-    ):
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+class AnalyzeResponse(BaseModel):
+    text:       str
+    prediction: int
+    label:      str
 
-        acc           = accuracy_score(y_test, y_pred)
-        f1_weighted   = f1_score(y_test, y_pred, average="weighted")
-        f1_macro      = f1_score(y_test, y_pred, average="macro")
-        recall_neg    = recall_score(y_test, y_pred, pos_label=0)
-        precision_neg = precision_score(y_test, y_pred, pos_label=0)
-        recall_pos    = recall_score(y_test, y_pred, pos_label=1)
-        precision_pos = precision_score(y_test, y_pred, pos_label=1)
+class ThemeResponse(BaseModel):
+    text:       str
+    theme:      str
+    confidence: float
 
-        if model_type == "svm":
-            scores = model.decision_function(X_test)
-            auc = roc_auc_score(y_test, scores)
-        else:
-            proba = model.predict_proba(X_test)[:, 1]
-            auc   = roc_auc_score(y_test, proba)
+class InsightResponse(BaseModel):
+    theme:   str
+    insight: str
 
-        mlflow.log_param("model_type",    model_type)
-        mlflow.log_param("task",          "sentiment_classification")
-        mlflow.log_metric("accuracy",     acc)
-        mlflow.log_metric("f1_weighted",  f1_weighted)
-        mlflow.log_metric("f1_macro",     f1_macro)
-        mlflow.log_metric("auc",          auc)
-        mlflow.log_metric("recall_neg",   recall_neg)
-        mlflow.log_metric("precision_neg",precision_neg)
-        mlflow.log_metric("recall_pos",   recall_pos)
-        mlflow.log_metric("precision_pos",precision_pos)
-        mlflow.set_tag("primary_metric",  "recall_neg")
-        mlflow.sklearn.log_model(model, "sentiment_model")
-
-        print(f"\n{'='*50}")
-        print(f"TASK 1 — Sentiment Classification ({model_type.upper()})")
-        print(f"{'='*50}")
-        print(f"  Accuracy      : {acc:.4f}")
-        print(f"  F1 Weighted   : {f1_weighted:.4f}")
-        print(f"  F1 Macro      : {f1_macro:.4f}")
-        print(f"  AUC           : {auc:.4f}")
-        print(f"  Recall  (neg) : {recall_neg:.4f}  <- primary metric")
-        print(f"  Precision(neg): {precision_neg:.4f}")
-        print("\n  Classification Report:")
-        print(classification_report(y_test, y_pred, target_names=["Negative","Positive"]))
-
-        joblib.dump(model, SENTIMENT_MODEL_PATH)
-        print(f"  Model saved to {SENTIMENT_MODEL_PATH}")
-
-        return {
-            "accuracy": acc, "f1_weighted": f1_weighted, "f1_macro": f1_macro,
-            "auc": auc, "recall_neg": recall_neg, "precision_neg": precision_neg,
-        }
+class HealthResponse(BaseModel):
+    status:       str
+    model_loaded: bool
 
 
-# ══════════════════════════════════════════════════════
-# TASK 2 — Theme Classification
-# ══════════════════════════════════════════════════════
-def train_theme(
-    X_train, X_test,
-    y_train, y_test,
-) -> dict:
-    """
-    Task 2 : multiclass theme classifier.
-    Predicts one of: communication, wait_time, medication, discharge.
-
-    Uses LogisticRegression with multinomial strategy.
-    Same TF-IDF matrix as Task 1 — no refit needed.
-    """
-    if y_train is None or y_test is None:
-        print("\n[Task 2] Skipped — Theme column not found in dataset.")
-        return {}
-
-    model = LogisticRegression(
-        max_iter=1000,
-        C=1.0,
-        solver="lbfgs",
-        multi_class="multinomial",
-    )
-
-    with mlflow.start_run(
-        run_name="task2_theme_classification",
-        tags={"task": "2", "type": "theme_classification", "model": "logreg"},
-    ):
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-
-        acc      = accuracy_score(y_test, y_pred)
-        f1_macro = f1_score(y_test, y_pred, average="macro")
-        f1_w     = f1_score(y_test, y_pred, average="weighted")
-
-        mlflow.log_param("model_type",   "logistic_regression_multinomial")
-        mlflow.log_param("task",         "theme_classification")
-        mlflow.log_param("num_classes",  len(set(y_train)))
-        mlflow.log_metric("accuracy",    acc)
-        mlflow.log_metric("f1_macro",    f1_macro)
-        mlflow.log_metric("f1_weighted", f1_w)
-        mlflow.sklearn.log_model(model, "theme_model")
-
-        print(f"\n{'='*50}")
-        print("TASK 2 — Theme Classification (LogReg Multinomial)")
-        print(f"{'='*50}")
-        print(f"  Accuracy  : {acc:.4f}")
-        print(f"  F1 Macro  : {f1_macro:.4f}")
-        print(f"  F1 Weighted: {f1_w:.4f}")
-        print("\n  Classification Report:")
-        print(classification_report(y_test, y_pred, target_names=sorted(set(y_test))))
-
-        joblib.dump(model, THEME_MODEL_PATH)
-        print(f"  Model saved to {THEME_MODEL_PATH}")
-
-        return {"accuracy": acc, "f1_macro": f1_macro, "f1_weighted": f1_w}
+# ── Endpoints ──────────────────────────────────────────
+@app.get("/health", response_model=HealthResponse, tags=["Monitoring"])
+def health_check() -> HealthResponse:
+    return HealthResponse(status="ok", model_loaded=sentiment_model is not None)
 
 
-# ══════════════════════════════════════════════════════
-# TASK 3 — NMF Topic Modeling
-# ══════════════════════════════════════════════════════
-def train_nmf(X_train, vectorizer) -> dict:
-    """
-    Task 3 : NMF topic modeling (unsupervised).
-
-    Applies NMF on the full TF-IDF train matrix.
-    Extracts NMF_N_COMPONENTS latent topics.
-    Logs top words per topic to MLflow as artifact.
-
-    No labels required — purely unsupervised.
-    """
-    model = NMF(
-        n_components=NMF_N_COMPONENTS,
-        max_iter=NMF_MAX_ITER,
-        random_state=42,
-    )
-
-    with mlflow.start_run(
-        run_name="task3_nmf_topic_modeling",
-        tags={"task": "3", "type": "topic_modeling", "model": "nmf"},
-    ):
-        W = model.fit_transform(X_train)  # document-topic matrix
-        H = model.components_             # topic-term matrix
-
-        recon_error = model.reconstruction_err_
-
-        # Extract top words per topic
-        feature_names = vectorizer.get_feature_names_out()
-        topics = {}
-        print(f"\n{'='*50}")
-        print(f"TASK 3 — NMF Topic Modeling ({NMF_N_COMPONENTS} topics)")
-        print(f"{'='*50}")
-        print(f"  Reconstruction error : {recon_error:.4f}")
-        print(f"  Document-topic matrix : {W.shape}")
-
-        for topic_idx, topic in enumerate(H):
-            top_indices = topic.argsort()[-NMF_TOP_WORDS:][::-1]
-            top_words   = [feature_names[i] for i in top_indices]
-            topic_key   = f"topic_{topic_idx + 1}"
-            topics[topic_key] = top_words
-            print(f"\n  Topic {topic_idx + 1}: {', '.join(top_words)}")
-
-        mlflow.log_param("n_components",       NMF_N_COMPONENTS)
-        mlflow.log_param("max_iter",           NMF_MAX_ITER)
-        mlflow.log_param("top_words_per_topic",NMF_TOP_WORDS)
-        mlflow.log_metric("reconstruction_error", recon_error)
-
-        # Log topics as JSON artifact
-        topics_path = MODEL_PATH.replace("sentiment_model.pkl", "nmf_topics.json")
-        with open(topics_path, "w") as f:
-            json.dump(topics, f, indent=2)
-        mlflow.log_artifact(topics_path, "topics")
-        print(f"\n  Topics saved to {topics_path}")
-
-        joblib.dump(model, NMF_MODEL_PATH)
-        print(f"  NMF model saved to {NMF_MODEL_PATH}")
-
-        return {"reconstruction_error": recon_error, "topics": topics}
+# Task 1
+@app.post("/analyze", response_model=AnalyzeResponse, tags=["Task 1 — Sentiment"])
+def analyze_feedback(request: FeedbackRequest) -> AnalyzeResponse:
+    """Task 1 : predict sentiment (Positive / Negative)."""
+    if sentiment_model is None or vectorizer is None:
+        raise HTTPException(status_code=503, detail="Model not loaded. Run src/train.py first.")
+    try:
+        result = predict_sentiment(request.text, sentiment_model, vectorizer)
+        return AnalyzeResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ══════════════════════════════════════════════════════
-# MAIN — Run all 3 tasks
-# ══════════════════════════════════════════════════════
-def train(model_type: str = "svm") -> dict:
-    """
-    Run the full training pipeline : Task 1 + Task 2 + Task 3.
+# Task 2
+@app.post("/predict-theme", response_model=ThemeResponse, tags=["Task 2 — Theme"])
+def predict_theme_endpoint(request: FeedbackRequest) -> ThemeResponse:
+    """Task 2 : predict healthcare theme (communication / wait_time / medication / discharge)."""
+    if vectorizer is None:
+        raise HTTPException(status_code=503, detail="Vectorizer not loaded. Run src/train.py first.")
+    try:
+        result = predict_theme(request.text, vectorizer)
+        return ThemeResponse(**result)
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="Theme model not found. Run src/train.py first.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    Single data load, single vectorizer fit.
-    All 3 tasks share the same TF-IDF representation.
-    """
-    _setup()
 
-    # ── Data ───────────────────────────────────────────
-    df = load_and_preprocess(DATA_PATH)
-    X_train, X_test, y_s_train, y_s_test, y_t_train, y_t_test, vectorizer = build_features(df)
+# Task 3
+@app.get("/topics-nmf", tags=["Task 3 — NMF Topics"])
+def get_nmf_topics() -> dict:
+    """Task 3 : return NMF latent topics with top words per topic."""
+    try:
+        return get_topics_nmf()
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="NMF model not found. Run src/train.py first.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    print(f"\n[Train] Dataset     : {DATA_PATH}")
-    print(f"[Train] Total rows  : {len(df)}")
-    print(f"[Train] Train/Test  : {X_train.shape[0]} / {X_test.shape[0]}")
-    print(f"[Train] Vocab size  : {X_train.shape[1]}")
 
-    results = {}
+# Dashboard
+@app.get("/topics", tags=["Dashboard"])
+def get_topics() -> dict:
+    """Return sentiment distribution grouped by healthcare theme."""
+    try:
+        return get_topic_distribution(DATA_PATH)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # ── Task 1 ─────────────────────────────────────────
-    results["task1"] = train_sentiment(
-        X_train, X_test, y_s_train, y_s_test, model_type=model_type
-    )
 
-    # ── Task 2 ─────────────────────────────────────────
-    results["task2"] = train_theme(
-        X_train, X_test, y_t_train, y_t_test
-    )
+@app.get("/samples", tags=["Dashboard"])
+def get_samples(theme: str = "communication", n: int = 6) -> dict:
+    """Return n real feedback samples for a given theme."""
+    if theme not in THEMES:
+        raise HTTPException(status_code=400, detail=f"Unknown theme. Choose from: {THEMES}")
+    try:
+        return {"theme": theme, "samples": get_real_samples(theme, n)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # ── Task 3 ─────────────────────────────────────────
-    results["task3"] = train_nmf(X_train, vectorizer)
 
-    print(f"\n{'='*50}")
-    print("TRAINING COMPLETE — 3 tasks logged to MLflow")
-    print(f"{'='*50}")
-    return results
+@app.post("/insights", response_model=InsightResponse, tags=["LLM"])
+def generate_insight(request: InsightRequest) -> InsightResponse:
+    """Generate an LLM-powered insight from real feedback samples."""
+    try:
+        samples = request.samples if request.samples else get_real_samples(request.theme)
+        insight = generate_llm_insight(samples, theme=request.theme)
+        return InsightResponse(theme=request.theme, insight=insight)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/metrics", tags=["MLOps"])
+def get_model_metrics() -> dict:
+    """Return latest MLflow run metrics for all 3 tasks."""
+    try:
+        import mlflow
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        client = mlflow.tracking.MlflowClient()
+        exp    = client.get_experiment_by_name(EXPERIMENT_NAME)
+        if exp is None:
+            raise HTTPException(status_code=404, detail="No experiment found. Run src/train.py first.")
+        runs = client.search_runs(
+            experiment_ids=[exp.experiment_id],
+            order_by=["start_time DESC"],
+            max_results=10,
+        )
+        if not runs:
+            raise HTTPException(status_code=404, detail="No training runs found. Run src/train.py first.")
+
+        result = {}
+        for run in runs:
+            task = run.data.tags.get("task", "unknown")
+            if task not in result:
+                result[task] = {
+                    "run_id":   run.info.run_id,
+                    "run_name": run.data.tags.get("mlflow.runName", ""),
+                    "metrics":  run.data.metrics,
+                    "params":   run.data.params,
+                }
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Dashboard ──────────────────────────────────────────
+@app.get("/", include_in_schema=False)
+def serve_dashboard() -> FileResponse:
+    return FileResponse("static/index.html")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 if __name__ == "__main__":
-    train(model_type="svm")
+    import uvicorn
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
